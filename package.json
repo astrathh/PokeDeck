@@ -1,0 +1,37 @@
+{
+  "name": "deck-multiconta",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Navegador multiconta para jogos idle no navegador",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "dist": "electron-vite build && electron-builder --win portable"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^45.3.1",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.5"
+  },
+  "build": {
+    "appId": "local.deck.multiconta",
+    "productName": "Deck",
+    "files": [
+      "out/**/*"
+    ],
+    "win": {
+      "target": "portable"
+    }
+  }
+}

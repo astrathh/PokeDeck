@@ -1,0 +1,71 @@
+# Deck — navegador multiconta
+
+App desktop (Electron + React + TypeScript) para rodar várias contas do mesmo jogo de navegador lado a lado, cada uma com sessão própria.
+
+## Rodando
+
+Requisitos: Node 20+.
+
+```bash
+npm install
+npm run dev        # desenvolvimento com hot reload (F12 abre o DevTools da interface)
+npm run dist       # gera um .exe portátil em dist/
+```
+
+Na primeira vez, o app pede a URL do jogo. Depois é só clicar em **Adicionar conta** e logar normalmente em cada slot. O login fica salvo.
+
+## Como funciona
+
+- **Uma sessão por conta.** Cada conta é uma `WebContentsView` numa partição `persist:acc-<id>`, com cookies, localStorage e IndexedDB separados. Os dados ficam em `%APPDATA%/deck-multiconta/Partitions/`.
+- **Layout.** A interface em React desenha os slots e mede o `<div>` vazio de cada um. O processo principal posiciona a view do jogo exatamente em cima (`src/renderer/src/components/DeckGrid.tsx` → `setBounds`).
+- **Modos:** Grade, Colunas, Foco. No **Econômico**, só a conta selecionada é desenhada na tela; as outras continuam rodando (`backgroundThrottling: false`), mas sem gastar GPU.
+- **Destacar:** abre a conta numa janela própria. Ao fechar essa janela, a conta volta para a grade sem recarregar.
+- **Métricas:** RAM e CPU por conta, a cada 2s, via `app.getAppMetrics()` cruzado com o PID de cada página. O histórico é de 1 hora.
+
+## Gerenciamento automático
+
+Tudo fica em `src/main/accounts.ts`:
+
+| Situação | O que acontece |
+|---|---|
+| Processo da página caiu | recarrega em 3s |
+| Falha de rede ao carregar | tenta de novo com espera crescente (5s, 10s, 20s… até 60s) |
+| Página travada além do limite | derruba o processo e recarrega |
+| RAM acima do limite configurado | recarrega a conta |
+| Texto de desconexão na tela | recarrega a conta |
+
+Recarregamentos entram numa **fila**, com intervalo entre um e outro, para não recarregar tudo de uma vez. Cada conta tem um cooldown de 2 min entre recarregamentos automáticos, para evitar loop.
+
+**Textos de desconexão:** nas Configurações, coloque a frase exata da tela de desconexão do jogo. Evite palavras soltas que podem aparecer no chat.
+
+## Recarregar quando o jogo atualizar
+
+`src/main/updateWatcher.ts` baixa a página do jogo de tempos em tempos e compara uma "impressão digital" da versão:
+
+- **Sem configuração:** usa a lista de arquivos `.js`/`.css` da página. Builds modernos mudam o nome desses arquivos a cada deploy.
+- **Com regex/URL de versão:** se o jogo expõe a versão em algum lugar (ex.: um `version.json` ou um texto `v1.7.30` no HTML), configure a URL e uma regex, ex.: `"version":"([^"]+)"`.
+
+Quando a versão muda, o app confere de novo 30s depois e, se confirmar, recarrega todas as contas em fila. Se o log disser que não conseguiu identificar a versão, é porque a página não tem arquivos com hash; aí use a regex.
+
+## Extensões
+
+Nas Configurações → **Extensões**, liste complementos da [addons.mozilla.org](https://addons.mozilla.org) (link ou nome curto), um por linha. Vem com o **/hunt for PokeIdle** (`hunt-for-pokeidle`). O Deck baixa, confere o hash, carrega em todas as contas e procura atualização a cada 6h. Só funcionam extensões que agem dentro da página do jogo (sem popup no ícone). Depois de adicionar ou atualizar, recarregue as contas.
+
+## Limitações conhecidas
+
+- As views do jogo ficam **por cima** do HTML da interface. Por isso, o modal de Configurações esconde as contas enquanto está aberto. Se criar outros popups na UI, chame `window.deck.setOverlay(true)`.
+- O zoom da interface é desativado (sem menu), porque mudaria a escala e desalinharia as views.
+
+## Próximos passos (automação)
+
+O lugar natural para automações (ex.: comprar item no market quando estiver acabando) é um script injetado por conta via `webContents.executeJavaScript`, ou um preload dedicado para as views do jogo. Ele leria a quantidade na tela, decidiria e clicaria. Antes de fazer isso, confira as regras do jogo: automação externa costuma ser tratada diferente das automações VIP que o próprio jogo oferece.
+
+## Estrutura
+
+```
+src/
+  main/         processo principal (janela, contas, watchdog, métricas, atualização)
+  preload/      ponte segura window.deck
+  renderer/     interface React
+  shared/       tipos compartilhados
+```
