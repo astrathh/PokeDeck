@@ -116,7 +116,7 @@ const caso = async (nome, fn) => { await fn(); ok++; console.log('ok -', nome) }
 // ---- 1) escolha da poção pelo HP máximo, limiar 30% ----
 for (const [hp, esperado] of [[1000, 'Small Potion'], [2000, 'Hyper Potion'], [5000, 'Ultimate Potion'], [15000, 'Max Elixir 50%']]) {
   await caso(`poção para HP ${hp} = ${esperado}`, async () => {
-    const p = pagina({ hp, linhas: [linha('a', 1000, 0.1)], items: { 200: 1e6, 203: 1e6, 204: 1e6, 999: 1e6 } })
+    const p = pagina({ hp, linhas: [linha('a', 1000, 0.05)], items: { 200: 1e6, 203: 1e6, 204: 1e6, 999: 1e6 } })
     const r = await p.tick(CFG())
     assert.equal(r.status.potion?.name, esperado, JSON.stringify(r))
   })
@@ -247,7 +247,7 @@ await caso('painel mostra por que não compra (estoque ok / esperando confirmaç
 // ---- 3b) poções já em estoque (caso da Conta 3) ----
 // HP 1.000, limiar 30% → faltam 700. Ouro por HP útil: Small 0,83 · Hyper 1,14 · Ultimate 2,14.
 await caso('usa a poção que já tem antes de comprar a ideal', async () => {
-  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.1)], items: { 203: 100 } })
+  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.05)], items: { 203: 100 } })
   const r = await p.tick(CFG())
   // 100 Hyper × 700 úteis = 70.000 HP; consumo 60.000 HP/h → 1,17 h: não compra
   assert.equal(p.enviados.filter((m) => m.t === 'shop.buy').length, 0)
@@ -264,7 +264,7 @@ await caso('marca só a melhor que tem (nada de Small num pokémon de 17k)', asy
 })
 
 await caso('poção ativa acabou: marca a próxima melhor na hora, sem esperar o tick', async () => {
-  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.1)], items: { 200: 3, 203: 100, 204: 5 }, potionIds: [200] })
+  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.05)], items: { 200: 3, 203: 100, 204: 5 }, potionIds: [200] })
   await p.tick(CFG()) // Small (melhor) já está marcada: nada a mudar
   assert.equal(p.enviados.filter((m) => m.t === 'auto.set').length, 0)
   // a Small acaba no meio da hunt
@@ -280,7 +280,7 @@ await caso('poção ativa acabou: marca a próxima melhor na hora, sem esperar o
 })
 
 await caso('simulação não troca a poção quando acaba', async () => {
-  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.1)], items: { 200: 3, 203: 100 }, potionIds: [200] })
+  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.05)], items: { 200: 3, 203: 100 }, potionIds: [200] })
   await p.tick(CFG({ dryRun: true }))
   p.eu.items[200] = 0
   p.ouvintes.estado(p.eu)
@@ -288,14 +288,14 @@ await caso('simulação não troca a poção quando acaba', async () => {
 })
 
 await caso('estoque misto acabando: compra a ideal contando o HP das outras', async () => {
-  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.1)], items: { 203: 20 } })
+  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.05)], items: { 203: 20 } })
   await p.tick(CFG())
   // 20 Hyper × 700 = 14.000 HP; meta 2 h = 120.000 HP → faltam 106.000 / 60 por Small = 1.767
   assert.deepEqual(p.enviados.find((m) => m.t === 'shop.buy'), { t: 'shop.buy', kind: 'item', id: 200, qty: 1767 })
 })
 
 await caso('troca de pokémon troca a poção ativa sozinha', async () => {
-  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.1)], items: { 200: 1e4, 204: 1e4 } })
+  const p = pagina({ hp: 1000, linhas: [linha('a', 1000, 0.05)], items: { 200: 1e4, 204: 1e4 } })
   await p.tick(CFG())
   assert.deepEqual(p.enviados.filter((m) => m.t === 'auto.set').at(-1).potionIds, [200])
   // entra um pokémon de 5.000 de HP (faltam 3.500): Ultimate 0,50 < Small 0,83
@@ -521,6 +521,97 @@ await caso('memória estragada no storage: começa do zero sem quebrar', async (
   const r = await p.tick(CFG())
   assert.equal(r.status.state, 'ok')
   assert.equal(p.eu.huntSlug, 'b')
+})
+
+// ---- gasto medido de poção (a estimativa do /hunt pode errar para baixo) ----
+await caso('gasto medido maior que o estimado: compra pelo medido', async () => {
+  // estimado: 60.000 HP/h = 20 Ultimate/h; real: 1 a cada 30 s = 120/h
+  const p = pagina({ hp: 5000, linhas: [linha('a', 1000, 0.1)], items: { 204: 100 }, potionIds: [204] })
+  await p.tickSo(CFG())
+  assert.equal(p.enviados.filter((m) => m.t === 'shop.buy').length, 0, 'pela estimativa, 100 duram 5 h')
+  for (let i = 0; i < 20; i++) { p.eu.items[204] -= 1; p.ouvintes.estado(p.eu); p.relogio.t += 30_000 }
+  const r = await p.tickSo(CFG())
+  assert.ok(Math.abs(r.status.potion.measured - 120) < 10, String(r.status.potion.measured))
+  assert.equal(Math.round(r.status.potion.estimated), 20)
+  assert.ok(Math.abs(r.status.potion.perHour - 120) < 10)
+  p.avancar(6000)
+  assert.equal(p.enviados.filter((m) => m.t === 'shop.buy').length, 1, JSON.stringify(r.acoes))
+  assert.ok(r.acoes.some((a) => a.msg.includes('medido')))
+})
+
+await caso('compra no meio da medição não conta como gasto (nem como ganho)', async () => {
+  const p = pagina({ hp: 5000, linhas: [linha('a', 1000, 0.1)], items: { 204: 100 }, potionIds: [204] })
+  await p.tickSo(CFG())
+  for (let i = 0; i < 20; i++) {
+    p.eu.items[204] -= 1
+    if (i === 10) p.eu.items[204] += 500 // comprou
+    p.ouvintes.estado(p.eu); p.relogio.t += 30_000
+  }
+  const r = await p.tickSo(CFG())
+  assert.ok(Math.abs(r.status.potion.measured - 120) < 10, String(r.status.potion.measured))
+})
+
+await caso('antes de 5 min na hunt, usa só a estimativa', async () => {
+  const p = pagina({ hp: 5000, linhas: [linha('a', 1000, 0.1)], items: { 204: 100 }, potionIds: [204] })
+  await p.tickSo(CFG())
+  for (let i = 0; i < 4; i++) { p.eu.items[204] -= 5; p.ouvintes.estado(p.eu); p.relogio.t += 30_000 }
+  const r = await p.tickSo(CFG())
+  assert.equal(r.status.potion.measured, undefined)
+  assert.equal(Math.round(r.status.potion.perHour), 20)
+})
+
+await caso('medido menor que o estimado: continua usando a estimativa (lado seguro)', async () => {
+  const p = pagina({ hp: 5000, linhas: [linha('a', 1000, 0.1)], items: { 204: 100 }, potionIds: [204] })
+  await p.tickSo(CFG())
+  for (let i = 0; i < 20; i++) { if (i % 10 === 0) p.eu.items[204] -= 1; p.ouvintes.estado(p.eu); p.relogio.t += 30_000 }
+  const r = await p.tickSo(CFG())
+  assert.ok(r.status.potion.measured < 20, String(r.status.potion.measured))
+  assert.equal(Math.round(r.status.potion.perHour), 20)
+})
+
+// ---- poções que curam menos que um golpe (caso da Conta 1) ----
+await caso('poção que cura menos que um golpe: não conta no estoque, não vira reserva, e compra a boa', async () => {
+  // 17.544 HP, golpe 15% = 2.632. Small (60) e Hyper (1.000) não seguram; Max Elixir 50% sim.
+  const p = pagina({ hp: 17_544, linhas: [linha('a', 1000, 0.15)], items: { 200: 5000, 203: 3000, 999: 5 }, potionIds: [999] })
+  const r = await p.tickSo(CFG())
+  p.avancar(6000)
+  // sem o filtro, 5.000 Small + 3.000 Hyper "durariam" 55 h e não compraria nada
+  assert.equal(p.enviados.find((m) => m.t === 'shop.buy')?.id, 999, JSON.stringify(r.acoes))
+  assert.ok(r.status.potion.hours < 1, String(r.status.potion.hours))
+  // a Max Elixir acaba: não passa para Hyper/Small
+  p.eu.items[999] = 0
+  p.ouvintes.estado(p.eu)
+  assert.ok(!p.enviados.some((m) => m.t === 'auto.set' && (m.potionIds.includes(200) || m.potionIds.includes(203))))
+})
+
+await caso('lista do "Usar Poções" explica as poções ignoradas', async () => {
+  const p = pagina({ hp: 17_544, linhas: [linha('a', 1000, 0.15)], items: { 200: 50, 204: 10, 999: 5 }, potionIds: [200, 204, 999] })
+  const r = await p.tickSo(CFG())
+  const msg = r.acoes.find((a) => a.msg.includes('Usar Poções'))?.msg ?? ''
+  assert.match(msg, /ignoradas \(curam menos que um golpe de 2\.632\): Small Potion/)
+  assert.match(msg, /reserva: Ultimate Potion/)
+})
+
+// ---- empate de XP/h: fica na de menor golpe ----
+await caso('XP/h praticamente igual (+0,4%) e golpe maior: não troca', async () => {
+  const p = pagina({ hp: 5000, huntSlug: 'n', linhas: [linha('n', 1000, 0.02), linha('s', 1004, 0.15)], items: { 204: 1e6 }, potionIds: [204] })
+  const r = await p.tick(CFG())
+  assert.equal(p.enviados.filter((m) => m.t === 'hunt.select').length, 0, JSON.stringify(r.acoes))
+  assert.match(r.status.huntNote, /praticamente igual/)
+  assert.equal(r.status.best.name, 'N')
+})
+
+await caso('XP/h praticamente igual e golpe menor: troca para a mais segura', async () => {
+  const p = pagina({ hp: 5000, huntSlug: 's', linhas: [linha('n', 1000, 0.02), linha('s', 1004, 0.15)], items: { 204: 1e6 }, potionIds: [204] })
+  const r = await p.tick(CFG())
+  assert.equal(p.eu.huntSlug, 'n')
+  assert.ok(r.acoes.some((a) => a.msg.includes('mesmo XP/h') && a.msg.includes('15% → 2%')), JSON.stringify(r.acoes))
+})
+
+await caso('ganho de XP/h acima do empate (+2%): troca mesmo com golpe maior', async () => {
+  const p = pagina({ hp: 5000, huntSlug: 'n', linhas: [linha('n', 1000, 0.02), linha('s', 1020, 0.15)], items: { 204: 1e6 }, potionIds: [204] })
+  await p.tick(CFG())
+  assert.equal(p.eu.huntSlug, 's')
 })
 
 console.log(`\n${ok} casos passaram`)

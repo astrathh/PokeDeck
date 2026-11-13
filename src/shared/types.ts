@@ -80,7 +80,18 @@ export interface AutoStatus {
   /** Por que comprou ou não comprou poção neste tick */
   potionNote?: string
   /** name/stock: a melhor em estoque (a que o jogo usa); hours: todas as poções somadas; buy: a que compraria. */
-  potion?: { name: string; stock: number; perHour: number; hours: number; buy?: string }
+  potion?: {
+    name: string
+    stock: number
+    /** O que a automação usa: o maior entre estimado e medido */
+    perHour: number
+    hours: number
+    buy?: string
+    /** Gasto medido nos últimos 30 min (poções/h da que está usando); ausente nos primeiros 5 min na hunt */
+    measured?: number
+    /** Estimativa do /hunt (poções/h) */
+    estimated?: number
+  }
   hunt?: { name: string; xpH: number; hitPct: number; safe: boolean }
   best?: { name: string; xpH: number; hitPct: number }
 }
@@ -140,6 +151,19 @@ export type AccountAction = 'reload' | 'hardReload' | 'home' | 'detach' | 'attac
 
 export type Unsubscribe = () => void
 
+/** Atualização do próprio Deck (instalado), pelas Releases do GitHub. */
+export interface AppUpdateState {
+  /** dev = rodando com npm run dev (não atualiza) */
+  state: 'dev' | 'idle' | 'checking' | 'downloading' | 'ready' | 'error'
+  /** Versão instalada */
+  current: string
+  /** Versão nova (baixando ou pronta) */
+  version?: string
+  percent?: number
+  message?: string
+  checkedAt?: number
+}
+
 export interface DeckApi {
   getConfig(): Promise<AppConfig>
   updateConfig(patch: Partial<AppConfig>): Promise<AppConfig>
@@ -157,4 +181,8 @@ export interface DeckApi {
   onMetrics(cb: (s: MetricsSample) => void): Unsubscribe
   onLog(cb: (e: LogEntry) => void): Unsubscribe
   onFocused(cb: (id: string) => void): Unsubscribe
+  getAppUpdate(): Promise<AppUpdateState>
+  checkAppUpdate(): Promise<void>
+  installAppUpdate(): Promise<void>
+  onAppUpdate(cb: (s: AppUpdateState) => void): Unsubscribe
 }

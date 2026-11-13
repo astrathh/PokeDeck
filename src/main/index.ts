@@ -9,6 +9,7 @@ import { UpdateWatcher } from './updateWatcher'
 import { startMetrics } from './metrics'
 import { ExtensionManager } from './extensions'
 import { AutoPilot } from './autoPilot'
+import { AppUpdater } from './appUpdater'
 
 // Pasta de dados alternativa (testes, ou um segundo Deck separado). Precisa vir antes da trava,
 // que é por pasta de dados.
@@ -30,7 +31,9 @@ function createWindow(): BrowserWindow {
     minWidth: 1100,
     minHeight: 680,
     show: false,
-    title: 'Deck',
+    title: `Deck ${app.getVersion()}`,
+    // Em desenvolvimento usa o ícone do build/; instalado, o .exe já carrega o ícone.
+    ...(app.isPackaged ? {} : { icon: join(app.getAppPath(), 'build', 'icon.png') }),
     backgroundColor: '#0d0f14',
     autoHideMenuBar: true,
     webPreferences: {
@@ -40,6 +43,9 @@ function createWindow(): BrowserWindow {
       sandbox: false
     }
   })
+
+  // Mantém a versão no título (o <title> da interface trocaria por "Deck").
+  win.on('page-title-updated', (e) => e.preventDefault())
 
   win.once('ready-to-show', () => {
     win.maximize()
@@ -97,6 +103,11 @@ app.whenReady().then(() => {
   }
 
   log.on('entry', (e) => send('log', e))
+  const appUpdater = new AppUpdater(log)
+  appUpdater.on('state', (s) => send('appUpdate', s))
+  ipcMain.handle('appUpdate:get', () => appUpdater.get())
+  ipcMain.handle('appUpdate:check', () => appUpdater.check())
+  ipcMain.handle('appUpdate:install', () => appUpdater.installNow())
   manager.on('runtime', (r) => send('runtime', r))
   manager.on('focused', (id) => send('account:focused', id))
   const stopMetrics = startMetrics(manager, (s) => send('metrics', s))
@@ -156,12 +167,14 @@ app.whenReady().then(() => {
   manager.restartWatchdog()
   updates.restart()
   autoPilot.restart()
-  log.info(null, 'Deck iniciado')
+  appUpdater.start()
+  log.info(null, `Deck ${app.getVersion()} iniciado`)
 
   win.on('closed', () => {
     stopMetrics()
     updates.stop()
     autoPilot.stop()
+    appUpdater.stop()
     extensions.stop()
     manager.dispose()
     store.flush()

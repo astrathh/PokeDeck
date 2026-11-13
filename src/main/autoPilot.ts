@@ -9,6 +9,14 @@ const TICK_TIMEOUT_MS = 15_000
 /** Consulta rápida do que a missão de troca de hunt (que roda na página, passo de 1s) fez. */
 const DRAIN_MS = 3_000
 
+const STATUS_TXT: Record<string, string> = {
+  loading: 'carregando',
+  reloading: 'recarregando',
+  crashed: 'caiu',
+  unresponsive: 'sem resposta',
+  offline: 'sem conexão'
+}
+
 type Acao = { nivel: 'info' | 'warn'; msg: string }
 
 interface TickResult {
@@ -143,6 +151,18 @@ export class AutoPilot {
         }
         this.logAcoes(id, res.acoes)
         this.report(id, res.status)
+      }
+      // Contas com automação que não estão prontas (carregando, caída, sem resposta): a automação não
+      // roda nelas — fica registrado no painel e em Eventos em vez de parar em silêncio.
+      const fora = new Set(this.store.get().auto.excludedIds ?? [])
+      const prontas = new Set(this.manager.readyContents().map((c) => c.id))
+      for (const rt of this.manager.runtime()) {
+        if (fora.has(rt.id) || prontas.has(rt.id)) continue
+        this.report(rt.id, {
+          state: 'aguardando',
+          message: `a página da conta não está pronta (${STATUS_TXT[rt.status] ?? rt.status}); a automação volta quando ela carregar`,
+          checkedAt: Date.now()
+        })
       }
     } finally {
       this.running = false

@@ -25,7 +25,11 @@ const api: DeckApi = {
   onRuntime: (cb) => subscribe('runtime', cb),
   onMetrics: (cb) => subscribe('metrics', cb),
   onLog: (cb) => subscribe('log', cb),
-  onFocused: (cb) => subscribe('account:focused', cb)
+  onFocused: (cb) => subscribe('account:focused', cb),
+  getAppUpdate: () => ipcRenderer.invoke('appUpdate:get'),
+  checkAppUpdate: () => ipcRenderer.invoke('appUpdate:check'),
+  installAppUpdate: () => ipcRenderer.invoke('appUpdate:install'),
+  onAppUpdate: (cb) => subscribe('appUpdate', cb)
 }
 
 contextBridge.exposeInMainWorld('deck', api)

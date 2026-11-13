@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { AccountRuntime, AppConfig, LogEntry, MetricsSample } from '../../shared/types'
+import type { AccountRuntime, AppConfig, AppUpdateState, LogEntry, MetricsSample } from '../../shared/types'
 import { fmtMb } from './format'
 import { DeckGrid } from './components/DeckGrid'
 import { Inspector } from './components/Inspector'
@@ -22,6 +22,12 @@ export function App() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [appUpdate, setAppUpdate] = useState<AppUpdateState | null>(null)
+
+  useEffect(() => {
+    void deck.getAppUpdate().then(setAppUpdate)
+    return deck.onAppUpdate(setAppUpdate)
+  }, [deck])
 
   useEffect(() => {
     void deck.getConfig().then(setConfig)
@@ -108,6 +114,7 @@ export function App() {
           )}
           <span className="spacer" />
           <span className="muted">{config.gameUrl}</span>
+          <AppVersion u={appUpdate} onCheck={() => void deck.checkAppUpdate()} onInstall={() => void deck.installAppUpdate()} />
         </footer>
       </main>
 
@@ -123,5 +130,37 @@ export function App() {
 
       {settingsOpen && <Settings config={config} onClose={() => setSettingsOpen(false)} onSave={update} />}
     </div>
+  )
+}
+
+/** Versão do Deck na barra de status + aviso de atualização baixada. */
+function AppVersion({ u, onCheck, onInstall }: { u: AppUpdateState | null; onCheck(): void; onInstall(): void }) {
+  if (!u) return null
+  if (u.state === 'ready') {
+    return (
+      <button className="update-ready" onClick={onInstall} title="Fecha o Deck, instala e abre de novo">
+        Deck {u.version} pronto: reiniciar e atualizar
+      </button>
+    )
+  }
+  const extra =
+    u.state === 'dev'
+      ? ' (dev)'
+      : u.state === 'checking'
+        ? ' · procurando atualização…'
+        : u.state === 'downloading'
+          ? ` · baixando ${u.version} (${u.percent ?? 0}%)`
+          : u.state === 'error'
+            ? ' · não consegui procurar atualização'
+            : ''
+  return (
+    <span
+      className="muted app-version"
+      title={u.state === 'dev' ? 'Rodando com npm run dev: não atualiza sozinho' : 'Clique para procurar atualização agora'}
+      onClick={u.state === 'dev' ? undefined : onCheck}
+    >
+      v{u.current}
+      {extra}
+    </span>
   )
 }

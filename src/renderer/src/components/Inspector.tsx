@@ -217,6 +217,12 @@ function AutoBox({
             : ''}
         </span>
       )}
+      {auto?.potion && (
+        <span className="muted">
+          Gasto: {auto.potion.measured != null ? `medido ~${n(auto.potion.measured)}/h · ` : 'medindo (5 min na hunt) · '}
+          estimado ~{n(auto.potion.estimated ?? auto.potion.perHour)}/h
+        </span>
+      )}
       {auto?.potionNote && <span className="muted">Compra: {auto.potionNote}</span>}
       {auto?.potion?.buy && auto.potion.buy !== auto.potion.name && (
         <span className="muted">Repõe com: {auto.potion.buy}</span>

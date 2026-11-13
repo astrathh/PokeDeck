@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Deck: três cartas em leque (planta, fogo, água). Arte original. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5cc96a"/><stop offset="1" stop-color="#2e8a3c"/>
+    </linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff7a4d"/><stop offset="1" stop-color="#d23b25"/>
+    </linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5aa8f0"/><stop offset="1" stop-color="#2463b8"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <!-- carta: moldura clara + painel colorido, centrada em (0,0), 210×294 -->
+    <g id="frame">
+      <rect x="-105" y="-147" width="210" height="294" rx="22" fill="#f6e7a8"/>
+      <rect x="-105" y="-147" width="210" height="294" rx="22" fill="none" stroke="#c9a640" stroke-width="5"/>
+    </g>
+  </defs>
+
+  <!-- esquerda: planta -->
+  <g transform="translate(130 262) rotate(-16) scale(0.82)" filter="url(#s)">
+    <use href="#frame"/>
+    <rect x="-88" y="-130" width="176" height="260" rx="14" fill="url(#g)"/>
+    <g transform="translate(0 -10)" fill="#fff">
+      <path d="M0,-62 C46,-36 46,36 0,62 C-46,36 -46,-36 0,-62 Z"/>
+      <path d="M0,-50 L0,58" stroke="#2e8a3c" stroke-width="7" stroke-linecap="round"/>
+      <path d="M0,-6 L22,-26 M0,18 L22,-2 M0,-6 L-22,-26 M0,18 L-22,-2" stroke="#2e8a3c" stroke-width="5" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- direita: água -->
+  <g transform="translate(382 262) rotate(16) scale(0.82)" filter="url(#s)">
+    <use href="#frame"/>
+    <rect x="-88" y="-130" width="176" height="260" rx="14" fill="url(#b)"/>
+    <path transform="translate(0 -6)" fill="#fff"
+          d="M0,-66 C22,-34 46,-6 46,20 A46,46 0 0 1 -46,20 C-46,-6 -22,-34 0,-66 Z"/>
+    <path transform="translate(0 -6)" fill="none" stroke="#2463b8" stroke-width="6" stroke-linecap="round"
+          d="M-24,18 A24,24 0 0 0 -6,40"/>
+  </g>
+
+  <!-- centro (por cima): fogo -->
+  <g transform="translate(256 252) scale(0.84)" filter="url(#s)">
+    <use href="#frame"/>
+    <rect x="-88" y="-130" width="176" height="260" rx="14" fill="url(#r)"/>
+    <g transform="translate(0 -4)">
+      <path fill="#fff"
+            d="M4,-72 C34,-38 54,-12 50,20 C46,50 22,64 0,64 C-24,64 -48,48 -50,18 C-52,-6 -38,-22 -26,-34 C-26,-14 -18,-4 -8,0 C-14,-30 -6,-52 4,-72 Z"/>
+      <path fill="#ffd36b"
+            d="M2,-8 C18,10 26,24 22,40 C18,54 8,58 0,58 C-10,58 -22,52 -22,38 C-22,24 -10,14 -4,4 C-2,14 4,18 8,18 C6,8 2,0 2,-8 Z"/>
+    </g>
+  </g>
+</svg>

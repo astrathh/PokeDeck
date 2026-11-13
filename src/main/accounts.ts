@@ -15,6 +15,8 @@ import type { ExtensionManager } from './extensions'
 
 /** Tempo mínimo entre dois recarregamentos automáticos da mesma conta (evita loop). */
 const AUTO_RELOAD_COOLDOWN_MS = 2 * 60_000
+/** Página que começou a carregar e não terminou nesse tempo é recarregada pelo watchdog. */
+const LOADING_STUCK_MS = 3 * 60_000
 
 /** Popups desses domínios abrem dentro do app (na mesma sessão da conta), p/ login social funcionar. */
 const AUTH_HOSTS = [/(^|\.)google\.com$/, /(^|\.)discord\.com$/, /(^|\.)facebook\.com$/, /(^|\.)twitch\.tv$/, /(^|\.)apple\.com$/]
@@ -32,6 +34,8 @@ interface Slot {
   since: number
   detachedWindow: BrowserWindow | null
   unresponsiveSince: number | null
+  /** Desde quando está no status atual (para pegar carregamento travado) */
+  statusSince: number
   failCount: number
   lastAutoReloadAt: number
   retryTimer: NodeJS.Timeout | null
@@ -127,6 +131,7 @@ export class AccountManager extends EventEmitter {
       since: Date.now(),
       detachedWindow: null,
       unresponsiveSince: null,
+      statusSince: Date.now(),
       failCount: 0,
       lastAutoReloadAt: 0,
       retryTimer: null,
@@ -190,6 +195,9 @@ export class AccountManager extends EventEmitter {
 
     wc.on('did-start-loading', () => {
       if (!this.alive(slot)) return
+      // Recarregamento que não partiu do Deck (o próprio jogo recarregou a página): registra, senão a
+      // automação some sem explicação enquanto a conta carrega.
+      if (slot.status === 'ready') this.log.info(id, 'A página começou a recarregar (pedido do próprio jogo)')
       this.setStatus(slot, slot.status === 'reloading' ? 'reloading' : 'loading')
     })
 
@@ -279,6 +287,7 @@ export class AccountManager extends EventEmitter {
 
   private setStatus(slot: Slot, status: AccountStatus, event?: string | null): void {
     if (status === 'ready' && slot.status !== 'ready') slot.since = Date.now()
+    if (status !== slot.status) slot.statusSince = Date.now()
     slot.status = status
     if (event !== undefined) slot.lastEvent = event
     this.emitRuntime()
@@ -461,6 +470,13 @@ export class AccountManager extends EventEmitter {
         this.log.warn(slot.id, `Travada há mais de ${w.unresponsiveGraceSec}s, reiniciando a página`)
         slot.unresponsiveSince = null
         wc.forcefullyCrashRenderer()
+        continue
+      }
+
+      // 1b) Carregando há tempo demais (página presa sem terminar de carregar) → recarrega.
+      if ((slot.status === 'loading' || slot.status === 'reloading') && now - slot.statusSince > LOADING_STUCK_MS) {
+        slot.statusSince = now
+        this.queueReload(slot.id, `carregando há mais de ${LOADING_STUCK_MS / 60_000} min sem terminar`)
         continue
       }
 

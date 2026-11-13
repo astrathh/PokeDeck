@@ -45,7 +45,7 @@
     if (!p?.on) return false;
     // 'welcome' e 'estado' ficam retidos no barramento do /hunt: quem assina tarde recebe o último.
     p.on('welcome', (m) => { welcome = m; });
-    p.on('estado', (e) => { eu = e; vigiarPocaoAtiva(); });
+    p.on('estado', (e) => { eu = e; medirGasto(); vigiarPocaoAtiva(); });
     assinado = true;
     return true;
   }
@@ -86,6 +86,7 @@
     // Para trocar a poção na hora em que a ativa acaba (sem esperar o próximo tick):
     vigiaPocao: null, // { ranking: [{ id, nome }] da melhor para a pior } — null = não gerenciar
     reservaPedida: null,
+    utilPorId: null, // Map id → HP útil da poção para o pokémon em campo (do último tick)
     avisos: new Map(), // chave → quando avisou
     // Fora de hunt (Centro): sai para a melhor hunt segura, no máximo uma tentativa por minuto.
     ultimaSaidaCentro: -Infinity,
@@ -130,6 +131,7 @@
   const num = (v) => nf.format(Math.round(v));
   const pct = (v) => `${Math.round(v * 100)}%`;
   const MIN = 60_000;
+  const EMPATE_XP = 0.01; // XP/h com menos de 1% de diferença = empate (decide pelo golpe menor)
 
   function enviar(msg) {
     if (!sock || sock.readyState !== Original.OPEN) throw new Error('socket do jogo fechado');
@@ -324,6 +326,41 @@
     catch (err) { registrar('warn', `não consegui trocar a poção: ${err?.message ?? err}`); }
   }
 
+  // ---- gasto real de poção ------------------------------------------------------------------------
+  // A estimativa do /hunt (dano por abate × abates/h) pode errar muito (ex.: Conta 1 estimava 36
+  // Golden/h e gastava ~160/h). Aqui se mede o HP útil em poções que some do estoque a cada estado do
+  // jogo, nos últimos 30 min, na mesma hunt e com o mesmo pokémon. Compra (estoque sobe) não conta.
+  // O tick usa o maior entre estimado e medido.
+  const JANELA_GASTO_MS = 30 * MIN;
+  const MIN_MEDICAO_MS = 5 * MIN;
+  const gasto = { chave: '', ultimoHp: null, quedas: [], desde: 0 };
+  const hpEmPocoes = (util) => {
+    let hp = 0;
+    for (const [id, u] of util) hp += Number(eu?.items?.[id] ?? 0) * u;
+    return hp;
+  };
+  function medirGasto() {
+    const util = mem.utilPorId;
+    if (!util || !eu) return;
+    const agora = Date.now();
+    const chave = `${eu.activeId}|${eu.huntSlug}|${eu.noCentro ? 'c' : 'h'}`;
+    const hp = hpEmPocoes(util);
+    if (chave !== gasto.chave) {
+      Object.assign(gasto, { chave, ultimoHp: hp, quedas: [], desde: agora });
+      return;
+    }
+    if (gasto.ultimoHp != null && hp < gasto.ultimoHp) gasto.quedas.push({ t: agora, hp: gasto.ultimoHp - hp });
+    gasto.ultimoHp = hp;
+    while (gasto.quedas.length && agora - gasto.quedas[0].t > JANELA_GASTO_MS) gasto.quedas.shift();
+  }
+  /** HP/h gasto em poções, medido; null enquanto não há pelo menos 5 min de medição nesta hunt. */
+  function gastoMedido(agora) {
+    const span = Math.min(JANELA_GASTO_MS, agora - gasto.desde);
+    if (!gasto.chave || span < MIN_MEDICAO_MS) return null;
+    const soma = gasto.quedas.filter((q) => agora - q.t <= JANELA_GASTO_MS).reduce((s, q) => s + q.hp, 0);
+    return (soma / span) * 60 * MIN;
+  }
+
   function limiarDe(automation) {
     const v = Number(automation?.hpLimiar);
     if (!Number.isFinite(v) || v <= 0) return null;
@@ -426,12 +463,23 @@
         custoHp: Number(i.npcPrice) / util, qtd: Number(eu.items?.[i.id] ?? 0),
       };
     }).filter((x) => x.util > 0).sort((a, b) => a.custoHp - b.custoHp);
-    // `ideal`: a que vale a pena comprar. `emEstoque`: as que a conta já tem, da melhor para a pior
-    // para este pokémon — são as que vão para "Usar Poções" do jogo, antes de comprar outra.
-    const ideal = pocoes[0];
-    if (!ideal) return fim('erro', 'Nenhuma poção comprável no NPC encontrada no catálogo do jogo');
-    const emEstoque = pocoes.filter((x) => x.qtd > 0);
+    if (!pocoes.length) return fim('erro', 'Nenhuma poção comprável no NPC encontrada no catálogo do jogo');
+    // Poção que cura menos que um golpe do selvagem não segura o pokémon (ex.: Small de 60 HP num
+    // pokémon de 19k levando golpes de 2.900): não é usada, não é comprada e não conta no estoque.
+    const linhasR = r.linhas ?? [];
+    const golpe = (linhasR.find((l) => l.slug === eu.huntSlug)?.hitPct ?? 0) * hpMax;
+    const adequadas = pocoes.filter((x) => x.cura >= golpe);
+    // `ideal`: a que vale a pena comprar. `emEstoque`: as adequadas que a conta já tem, da melhor para a
+    // pior — a primeira vai para "Usar Poções"; quando acaba, a próxima. Só elas contam no estoque.
+    const ideal = adequadas[0] ?? [...pocoes].sort((a, b) => b.cura - a.cura)[0];
+    const emEstoque = adequadas.filter((x) => x.qtd > 0);
+    const ignoradas = pocoes.filter((x) => x.qtd > 0 && x.cura < golpe);
     const usando = emEstoque[0] ?? ideal;
+    // HP útil de cada poção para este pokémon (a medição de gasto usa). Mudou (subiu de nível etc.):
+    // reancora a medição sem contar a diferença como gasto.
+    mem.utilPorId = new Map(pocoes.map((x) => [x.id, x.util]));
+    if (gasto.chave) gasto.ultimoHp = hpEmPocoes(mem.utilPorId);
+    else medirGasto();
 
     const hpH = (l) => (l.danoPorAbate || 0) * (l.kph || 0); // HP curado por hora na hunt
     const custoH = (l) => (hpH(l) / ideal.util) * ideal.preco; // custo de longo prazo (repondo com a ideal)
@@ -446,8 +494,17 @@
       l.hitPct < L && // um golpe maior que o HP no limiar pode matar antes da poção disparar
       l.hitPct <= teto &&
       (!h.requirePositiveGold || l.ouroH - custoH(l) >= 0);
-    const linhas = r.linhas ?? [];
-    const seguras = linhas.filter(segura).sort((a, b) => b.xpTreinadorH - a.xpTreinadorH);
+    const linhas = linhasR;
+    // Ordem de preferência: a de maior XP/h; mas hunts com XP/h praticamente igual ao da melhor (menos
+    // de EMPATE_XP de diferença) são empate — entre elas ganha a de menor golpe. Evita trocar por "+0%"
+    // para uma hunt mais arriscada (ex.: Nincada 2% ↔ Shedinja 15%).
+    const porXp = linhas.filter(segura).sort((a, b) => b.xpTreinadorH - a.xpTreinadorH);
+    const topo = porXp[0]?.xpTreinadorH ?? 0;
+    const naFaixa = (l) => l.xpTreinadorH >= topo * (1 - EMPATE_XP);
+    const seguras = [
+      ...porXp.filter(naFaixa).sort((a, b) => a.hitPct - b.hitPct || b.xpTreinadorH - a.xpTreinadorH),
+      ...porXp.filter((l) => !naFaixa(l)),
+    ];
     const atual = linhas.find((l) => l.slug === eu.huntSlug) ?? null;
     const melhor = seguras[0] ?? null;
 
@@ -484,8 +541,11 @@
       }
     } else if (h.enabled && eu.huntSlug && atual && !ocupada && !eu.noCentro && !missao) {
       const insegura = !segura(atual);
-      const ganhoOk = melhor && melhor.slug !== atual.slug &&
-        melhor.xpTreinadorH > atual.xpTreinadorH; // maior XP/h segura sempre ganha
+      // Maior XP/h segura sempre ganha; empatada (atual na faixa de EMPATE_XP), só troca por golpe menor.
+      const atualEmpata = !insegura && naFaixa(atual);
+      const ganhoOk = melhor && melhor.slug !== atual.slug && (atualEmpata
+        ? melhor.hitPct < atual.hitPct
+        : melhor.xpTreinadorH > atual.xpTreinadorH);
       const ficouOBastante = agora - mem.ultimaTroca >= h.minStayMin * MIN;
       // Insegura: sai logo (só respeita 2 min entre trocas, para não martelar o servidor).
       const trocar = melhor && melhor.slug !== atual.slug && (
@@ -496,7 +556,9 @@
       if (trocar) {
         const motivo = insegura
           ? `hunt atual arriscada (golpe tira ${pct(atual.hitPct)} do HP)`
-          : `+${Math.round((melhor.xpTreinadorH / Math.max(1, atual.xpTreinadorH) - 1) * 100)}% de XP/h do treinador`;
+          : atualEmpata
+            ? `mesmo XP/h (diferença menor que ${pct(EMPATE_XP)}) com golpe menor: ${pct(atual.hitPct)} → ${pct(melhor.hitPct)}`
+            : `+${Math.round((melhor.xpTreinadorH / Math.max(1, atual.xpTreinadorH) - 1) * 100)}% de XP/h do treinador`;
         // Troca = voltar ao Centro (quando a trava de combate liberar) e escolher a hunt nova.
         if (!simul) {
           const de = { slug: atual.slug, nome: atual.nome };
@@ -513,7 +575,12 @@
       } else if (!melhor) {
         status.huntNote = 'nenhuma hunt segura para este pokémon';
       } else if (melhor.slug === atual.slug) {
-        status.huntNote = 'já está na hunt segura de maior XP/h';
+        const quaseIgual = porXp[0] && porXp[0].slug !== atual.slug ? porXp[0] : null;
+        status.huntNote = quaseIgual
+          ? `já está na melhor hunt: ${quaseIgual.nome} rende praticamente igual (+${((quaseIgual.xpTreinadorH / Math.max(1, atual.xpTreinadorH) - 1) * 100).toFixed(1)}%) com golpe maior (${pct(quaseIgual.hitPct)})`
+          : 'já está na hunt segura de maior XP/h';
+      } else if (atualEmpata && !ganhoOk) {
+        status.huntNote = `já está numa hunt de XP/h praticamente igual ao de ${melhor.nome}, com golpe menor ou igual`;
       } else if (!ficouOBastante) {
         status.huntNote = `troca para ${melhor.nome} em ${Math.ceil((h.minStayMin * MIN - (agora - mem.ultimaTroca)) / MIN)} min (tempo mínimo na hunt)`;
       } else {
@@ -535,11 +602,18 @@
 
     // ---- 4) poções: lista da automação do jogo + estoque ----
     const pc = cfg.potions;
-    const hpHora = alvo ? hpH(alvo) : 0;
+    // Gasto: o maior entre a estimativa do /hunt e o medido (só vale para a hunt atual).
+    const estimado = alvo ? hpH(alvo) : 0;
+    const medido = alvo && alvo === atual ? gastoMedido(agora) : null;
+    const usaMedido = medido != null && medido > estimado;
+    const hpHora = usaMedido ? medido : estimado;
     // O estoque conta todas as poções que a conta tem, cada uma pelo HP útil que cura.
     const hpEmEstoque = emEstoque.reduce((s, x) => s + x.qtd * x.util, 0);
     const horas = hpHora > 0 ? hpEmEstoque / hpHora : Infinity;
-    status.potion = { name: usando.nome, stock: usando.qtd, perHour: hpHora / usando.util, hours: horas, buy: ideal.nome };
+    status.potion = {
+      name: usando.nome, stock: usando.qtd, perHour: hpHora / usando.util, hours: horas, buy: ideal.nome,
+      measured: medido != null ? medido / usando.util : undefined, estimated: estimado / usando.util,
+    };
 
     mem.vigiaPocao = null;
     if (pc.enabled) {
@@ -558,9 +632,10 @@
         if (!simul) enfileirar('marcar a poção', () => enviar({ t: 'auto.set', ...(eu.automation ?? automation), potionIds: lista }));
         mem.ultimaListaPocao = chaveLista;
         const outras = emEstoque.slice(1).map((x) => `${x.nome} ${x.custoHp.toFixed(2)}`).join(', ');
+        const fracas = ignoradas.map((x) => x.nome).join(', ');
         acoes.push({
           nivel: 'info',
-          msg: `${prefixo}deixar só ${usando.nome} em "Usar Poções" (${usando.custoHp.toFixed(2)} ouro por HP útil; HP máx ${num(hpMax)}, limiar ${pct(L)}${outras ? `; outras no estoque: ${outras}` : ''})`,
+          msg: `${prefixo}deixar só ${usando.nome} em "Usar Poções" (${usando.custoHp.toFixed(2)} ouro por HP útil; HP máx ${num(hpMax)}, limiar ${pct(L)}${outras ? `; reserva: ${outras}` : ''}${fracas ? `; ignoradas (curam menos que um golpe de ${num(golpe)}): ${fracas}` : ''})`,
         });
       }
 
@@ -595,7 +670,7 @@
           status.potionNote = `${simul ? '[simulação] ' : ''}comprando ${num(qty)} ${ideal.nome}`;
           acoes.push({
             nivel: 'info',
-            msg: `${prefixo}comprar ${num(qty)} ${ideal.nome} por ${num(qty * ideal.preco)} de ouro (estoque de poções dura ~${horas.toFixed(1)} h; gasta ~${num(hpHora / ideal.util)}/h dela)`,
+            msg: `${prefixo}comprar ${num(qty)} ${ideal.nome} por ${num(qty * ideal.preco)} de ouro (estoque de poções dura ~${horas.toFixed(1)} h; gasta ~${num(hpHora / ideal.util)}/h dela${usaMedido ? `, medido — o /hunt estimava ${num(estimado / ideal.util)}/h` : ''})`,
           });
         } else {
           // Sem ouro nem para 1 dentro do teto: não compra, mas avisa (senão parece que travou).

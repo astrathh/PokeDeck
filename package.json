@@ -9,8 +9,9 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "dist": "electron-vite build && electron-builder --win portable",
-    "test:auto": "node tests/deck-auto.test.mjs"
+    "dist": "electron-vite build && electron-builder --win nsis --publish never",
+    "test:auto": "node tests/deck-auto.test.mjs",
+    "release": "electron-vite build && electron-builder --win nsis --publish always"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
@@ -28,17 +29,40 @@
   "build": {
     "appId": "local.deck.multiconta",
     "productName": "Deck",
+    "directories": {
+      "buildResources": "build"
+    },
     "files": [
       "out/**/*"
     ],
     "win": {
-      "target": "portable"
+      "target": "nsis",
+      "icon": "build/icon.png"
     },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Deck",
+      "artifactName": "Deck-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "astrathh",
+        "repo": "deck",
+        "releaseType": "release"
+      }
+    ],
     "extraResources": [
       {
         "from": "resources/deck-auto",
         "to": "deck-auto"
       }
     ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }
