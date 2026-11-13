@@ -3,9 +3,9 @@
 #   git push --follow-tags
 # O PokeDeck instalado procura versão nova nessas Releases e se atualiza sozinho.
 #
-# O repositório usa releases imutáveis: uma Release publicada não aceita mais arquivos. Por isso o
-# electron-builder cria a Release como RASCUNHO, sobe o instalador e o latest.yml, e só no último passo
-# ela é publicada (e aí fica imutável, já completa).
+# A Release nasce como RASCUNHO (invisível para quem usa): o electron-builder sobe o instalador e o
+# latest.yml, o fluxo confere e escreve a descrição, e só no último passo ela é publicada. Assim nunca
+# sai uma Release pela metade (sem .exe), e funciona também com "releases imutáveis" ligado no GitHub.
 name: Release
 
 on:

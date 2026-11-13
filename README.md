@@ -31,8 +31,8 @@ O fluxo está em `.github/workflows/release.yml` (Windows do GitHub, roda typech
 a atualização sozinho. Primeira instalação: baixar `PokeDeck-Setup-<versão>.exe` da página de Releases; como o
 instalador não tem assinatura digital, o Windows avisa ("Mais informações → Executar assim mesmo").
 
-O repositório usa **releases imutáveis** (Release publicada não aceita mais arquivos): por isso o fluxo cria a Release
-como rascunho, sobe o instalador e o `latest.yml`, confere e só então publica. Se o passo de montar falhar, sobra um
+O fluxo cria a Release como rascunho, sobe o instalador e o `latest.yml`, confere e só então publica: nunca sai uma
+Release pela metade (e funciona também com "releases imutáveis" ligado no GitHub). Se o passo de montar falhar, sobra um
 rascunho (invisível para quem usa): apague-o em Releases e gere a próxima versão.
 
 A **descrição da Release** é gerada dos commits desde a última Release publicada (`scripts/release-notes.mjs`):
