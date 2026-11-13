@@ -51,7 +51,7 @@
       {
         "provider": "github",
         "owner": "astrathh",
-        "repo": "deck",
+        "repo": "PokeDeck",
         "releaseType": "release"
       }
     ],

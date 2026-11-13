@@ -16,7 +16,7 @@ Na primeira vez, o app pede a URL do jogo. Depois é só clicar em **Adicionar c
 
 ## Versões e atualização automática
 
-O Deck instalado procura versão nova nas [Releases](https://github.com/astrathh/deck/releases) ao abrir e a cada 4 h,
+O Deck instalado procura versão nova nas [Releases](https://github.com/astrathh/PokeDeck/releases) ao abrir e a cada 4 h,
 baixa em segundo plano e mostra "Deck X pronto: reiniciar e atualizar" na barra de status (se ninguém clicar, instala
 ao fechar). A versão em uso aparece no título da janela e na barra de status.
 
