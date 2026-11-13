@@ -1,6 +1,6 @@
 import { app, net, type Session } from 'electron'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { inflateRawSync } from 'node:zlib'
 import type { ConfigStore } from './store'
@@ -10,6 +10,9 @@ import type { Logger } from './logger'
 const UPDATE_INTERVAL_MS = 6 * 60 * 60_000
 /** Na primeira vez (extensão ainda não baixada), quanto as contas esperam o download antes de abrir sem ela. */
 const FIRST_DOWNLOAD_WAIT_MS = 20_000
+
+/** Espera o arquivo parar de mudar (salvamentos em sequência) antes de recarregar a automação. */
+const BUILTIN_DEBOUNCE_MS = 3_000
 
 const AMO_API = 'https://addons.mozilla.org/api/v5/addons/addon/'
 
@@ -85,6 +88,12 @@ export class ExtensionManager {
   /** Resolve quando as extensões já baixadas estão prontas (e as novas baixaram ou desistiram). */
   private ready: Promise<void> = Promise.resolve()
   private refreshing: Promise<void> | null = null
+  private watchers: FSWatcher[] = []
+  private builtinTimer: NodeJS.Timeout | null = null
+  /** Hash do auto.js que está carregado nas sessões agora. */
+  private autoHash = ''
+  /** Chamado depois de recarregar a automação nas sessões (o index recarrega as contas). */
+  onBuiltinsChanged: ((version: string) => void) | null = null
 
   constructor(
     private readonly store: ConfigStore,
@@ -95,6 +104,13 @@ export class ExtensionManager {
     return join(app.getPath('userData'), 'extensions')
   }
 
+  /** Extensões que vêm com o Deck (resources/), sempre carregadas. */
+  private builtins(): string[] {
+    const base = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
+    const dirs = [join(base, 'deck-auto')]
+    return dirs.filter((d) => existsSync(join(d, 'manifest.json'))).map((d) => resolve(d))
+  }
+
   private wanted(): string[] {
     const slugs = this.store.get().extensions.map(slugFrom).filter((s): s is string => s !== null)
     return [...new Set(slugs)]
@@ -102,13 +118,87 @@ export class ExtensionManager {
 
   start(): void {
     this.stop()
+    this.autoHash = this.hashBuiltins()
     this.ready = this.refresh()
     this.timer = setInterval(() => void this.refresh(), UPDATE_INTERVAL_MS)
+    this.watchBuiltins()
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
+    for (const w of this.watchers) w.close()
+    this.watchers = []
+    if (this.builtinTimer) clearTimeout(this.builtinTimer)
+    this.builtinTimer = null
+  }
+
+  /** Versão da automação carregada: "0.3.0 · 1a2b3c4" (versão declarada no auto.js + hash do arquivo). */
+  autoVersion(): string {
+    return this.autoHash
+  }
+
+  /** sha256 curto dos arquivos das extensões que vêm com o Deck. */
+  private hashBuiltins(): string {
+    const h = createHash('sha256')
+    let versao = ''
+    for (const dir of this.builtins()) {
+      for (const f of readdirSync(dir).sort()) {
+        if (!/\.(js|json)$/.test(f)) continue
+        try {
+          const buf = readFileSync(join(dir, f))
+          h.update(f).update(buf)
+          versao ||= buf.toString('utf8').match(/versao:\s*'([^']+)'/)?.[1] ?? ''
+        } catch {
+          /* sendo gravado: o próximo evento do watcher pega */
+        }
+      }
+    }
+    const curto = h.digest('hex').slice(0, 7)
+    return versao ? `${versao} · ${curto}` : curto
+  }
+
+  /**
+   * Em desenvolvimento, o auto.js muda com o Deck aberto. Content script só é relido quando a extensão
+   * é carregada de novo: aqui recarrega a extensão nas sessões e avisa (o index recarrega as contas).
+   * Empacotado, os arquivos não mudam e nada é observado.
+   */
+  private watchBuiltins(): void {
+    if (app.isPackaged) return
+    for (const dir of this.builtins()) {
+      try {
+        this.watchers.push(
+          watch(dir, () => {
+            if (this.builtinTimer) clearTimeout(this.builtinTimer)
+            this.builtinTimer = setTimeout(() => void this.builtinsChanged(), BUILTIN_DEBOUNCE_MS)
+          })
+        )
+      } catch (err) {
+        this.log.warn(null, `Não consigo observar ${dir}: ${(err as Error).message}`)
+      }
+    }
+  }
+
+  private async builtinsChanged(): Promise<void> {
+    this.builtinTimer = null
+    const novo = this.hashBuiltins()
+    if (novo === this.autoHash) return
+    const dirs = new Set(this.builtins())
+    for (const ses of this.sessions) {
+      for (const ext of ses.extensions.getAllExtensions()) {
+        if (dirs.has(resolve(ext.path))) ses.extensions.removeExtension(ext.id)
+      }
+      for (const dir of dirs) {
+        try {
+          await ses.extensions.loadExtension(dir)
+        } catch (err) {
+          this.log.warn(null, `Não consegui recarregar a automação: ${(err as Error).message}`)
+        }
+      }
+    }
+    this.log.info(null, `Automação atualizada (${this.autoHash || '?'} → ${novo})`)
+    this.autoHash = novo
+    this.onBuiltinsChanged?.(novo)
   }
 
   /** Chamado ao criar cada conta, antes de abrir o jogo. */
@@ -219,7 +309,7 @@ export class ExtensionManager {
 
   /** Deixa a sessão com exatamente as extensões instaladas (troca versões antigas, tira as removidas). */
   private async applyTo(ses: Session): Promise<void> {
-    const want = new Set([...this.installed.values()].map((i) => resolve(i.dir)))
+    const want = new Set([...this.builtins(), ...[...this.installed.values()].map((i) => resolve(i.dir))])
     const root = resolve(this.root)
     const loaded = ses.extensions.getAllExtensions()
     for (const ext of loaded) {

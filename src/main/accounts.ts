@@ -6,6 +6,7 @@ import type {
   AccountRuntime,
   AccountStatus,
   AppConfig,
+  AutoStatus,
   Rect
 } from '../shared/types'
 import type { ConfigStore } from './store'
@@ -37,6 +38,7 @@ interface Slot {
   memoryMb: number
   cpu: number
   lastEvent: string | null
+  auto: AutoStatus | null
 }
 
 function safeHost(url: string): string {
@@ -130,7 +132,8 @@ export class AccountManager extends EventEmitter {
       retryTimer: null,
       memoryMb: 0,
       cpu: 0,
-      lastEvent: null
+      lastEvent: null,
+      auto: null
     }
     this.slots.set(acc.id, slot)
     this.wire(slot)
@@ -494,6 +497,25 @@ export class AccountManager extends EventEmitter {
 
   // ---------------------------------------------------------------- métricas / estado
 
+  /** Contas abertas e prontas (página carregada), para a automação. */
+  readyContents(): { id: string; wc: WebContents }[] {
+    return [...this.slots.values()]
+      .filter((s) => this.alive(s) && s.status === 'ready')
+      .map((s) => ({ id: s.id, wc: s.view.webContents }))
+  }
+
+  setAutoStatus(id: string, status: AutoStatus | null): void {
+    const slot = this.slots.get(id)
+    if (!slot) return
+    slot.auto = status
+    this.emitRuntime()
+  }
+
+  clearAutoStatus(): void {
+    for (const slot of this.slots.values()) slot.auto = null
+    this.emitRuntime()
+  }
+
   pids(): { id: string; pid: number }[] {
     return [...this.slots.values()].map((s) => ({
       id: s.id,
@@ -521,7 +543,8 @@ export class AccountManager extends EventEmitter {
       memoryMb: s.memoryMb,
       cpu: s.cpu,
       lastEvent: s.lastEvent,
-      since: s.since
+      since: s.since,
+      auto: s.auto
     }))
   }
 

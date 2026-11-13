@@ -56,9 +56,19 @@ Nas Configurações → **Extensões**, liste complementos da [addons.mozilla.or
 - As views do jogo ficam **por cima** do HTML da interface. Por isso, o modal de Configurações esconde as contas enquanto está aberto. Se criar outros popups na UI, chame `window.deck.setOverlay(true)`.
 - O zoom da interface é desativado (sem menu), porque mudaria a escala e desalinharia as views.
 
-## Próximos passos (automação)
+## Automação (poções e hunts)
 
-O lugar natural para automações (ex.: comprar item no market quando estiver acabando) é um script injetado por conta via `webContents.executeJavaScript`, ou um preload dedicado para as views do jogo. Ele leria a quantidade na tela, decidiria e clicaria. Antes de fazer isso, confira as regras do jogo: automação externa costuma ser tratada diferente das automações VIP que o próprio jogo oferece.
+Botão **Automação** na barra (regras em Configurações → Automação). Vale para todas as contas e precisa da extensão /hunt for PokeIdle.
+
+- **Poção:** escolhe a de menor preço por HP útil para o pokémon em campo, considerando o limiar de "Usar Poções" do jogo (o que a poção curar além do que falta é desperdício). Antes de comprar, usa o que a conta já tem: deixa marcada em "Usar Poções" só a melhor poção que tem para aquele pokémon (troca sozinha quando muda o pokémon ou a hunt, e marca a próxima na hora quando a ativa acaba). Quando o estoque de todas somadas dura menos de 1h, compra a ideal no NPC, completando 2h. Uma compra nunca passa de 20% do ouro.
+- **Hunt:** vai para a de maior XP/h do treinador entre as seguras: o pior golpe do selvagem precisa ser menor que o limiar da poção e, para treinador até nível 200, no máximo 30% do HP. Sempre fica na de maior XP/h; só espera 15 min numa hunt antes de trocar de novo, para não ficar trocando por oscilação da estimativa; se a hunt atual ficou arriscada, sai na hora. A conta deve estar sempre numa hunt: se estiver no Centro (ou sem hunt), vai para a melhor hunt segura em até 1 min; se o jogo recusar a hunt 3 vezes, pula ela por 10 min e tenta a próxima segura. Sem nenhuma hunt segura, fica no Centro. Para trocar, espera a trava de combate do jogo (3 s sem golpe) e escolhe a hunt nova direto (opcional nas Configurações: passar antes pelo Centro Pokémon). Se o jogo recusar 7 vezes, tenta pelo Centro 3 vezes; se ainda assim não der, volta para a hunt de onde saiu; nunca usa "desistir do combate" (perde XP). A saída da hunt acontece no instante em que a trava de combate abre; as outras ações (poções, compras) saem com 2–5 s entre uma e outra.
+- **Painel e Eventos:** cada conta mostra as linhas "Hunt:" e "Compra:" com o motivo de trocar/comprar ou não (estoque ok, esperando confirmação, pausada, sem ouro dentro do teto). Quando a automação de uma conta para ou fica esperando algo (sem conexão, sem pokémon…), Eventos registra uma vez, e de novo quando volta a rodar.
+- **Contas com automação:** em Configurações → Automação → "Rodar nas contas", ou no botão "Automação" do painel de cada conta. Conta nova entra ligada.
+- **Eventos em arquivo:** um arquivo por dia em `%APPDATA%\deck-multiconta\logs\eventos-AAAA-MM-DD.log` (guarda 14 dias).
+- **Automação atualizada com o Deck aberto** (desenvolvimento): o Deck percebe que `resources/deck-auto` mudou, recarrega a automação e as contas uma a uma. A versão em uso aparece no painel da conta ("Versão da automação: 0.3.0 · 1a2b3c4").
+- **Memória da automação** (última troca de hunt, compra a confirmar, compras pausadas, hunts recusadas, avisos) fica no localStorage de cada conta e sobrevive ao recarregar a página.
+- Começa em **modo simulação**: só escreve em Eventos o que faria. Desligue a simulação quando os números baterem com o jogo.
+- Os termos do Pokeidle permitem automação que siga as mesmas regras de quem joga na mão.
 
 ## Estrutura
 
@@ -68,4 +78,7 @@ src/
   preload/      ponte segura window.deck
   renderer/     interface React
   shared/       tipos compartilhados
+resources/
+  deck-auto/    extensão embutida com a lógica da automação
+tests/          testes da automação (npm run test:auto)
 ```

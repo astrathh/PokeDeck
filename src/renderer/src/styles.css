@@ -50,7 +50,7 @@ button.primary:hover:not(:disabled) { background: #7c4ded; }
 button.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.15); border-color: var(--red); color: #fca5a5; }
 button.icon { padding: 4px; background: transparent; border-color: transparent; }
 
-input, textarea {
+input, textarea, select {
   font: inherit;
   color: var(--text);
   background: var(--bg);
@@ -60,7 +60,7 @@ input, textarea {
   width: 100%;
   user-select: text;
 }
-input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
 textarea { resize: vertical; }
 
 .muted { color: var(--muted); }
@@ -245,3 +245,16 @@ legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
 .field > span { font-size: 12px; color: var(--muted); }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
 .check input { width: auto; accent-color: var(--accent); }
+
+/* ---------- automação ---------- */
+
+.toggle.sim { background: rgba(234, 179, 8, 0.12); border-color: rgba(234, 179, 8, 0.5); color: #fde68a; }
+.badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.auto-box { margin-top: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.auto-box .metric-head { margin-top: 0; }
+.check-list { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.auto-box .ok { color: #86efac; }
+.auto-box .aguardando { color: var(--muted); }
+.auto-box .erro { color: #fca5a5; }
+.auto-box .risco { color: #fcd34d; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

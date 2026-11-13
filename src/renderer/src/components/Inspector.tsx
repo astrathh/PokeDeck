@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AccountConfig, AccountRuntime, AppConfig, LogEntry, MetricsSample } from '../../../shared/types'
+import type { AccountConfig, AccountRuntime, AppConfig, AutoStatus, LogEntry, MetricsSample } from '../../../shared/types'
 import { fmtDuration, fmtMb, fmtTime, STATUS_LABEL, statusOf } from '../format'
 import { Icon } from './Icon'
 import { Sparkline } from './Sparkline'
@@ -104,6 +104,18 @@ function AccountPanel({
         </div>
       )}
 
+      {config.auto.enabled && acc.enabled && (
+        <AutoBox
+          auto={rt?.auto ?? null}
+          dryRun={config.auto.dryRun}
+          on={!(config.auto.excludedIds ?? []).includes(acc.id)}
+          onToggle={(on) => {
+            const fora = (config.auto.excludedIds ?? []).filter((x) => x !== acc.id)
+            update({ auto: { ...config.auto, excludedIds: on ? fora : [...fora, acc.id] } })
+          }}
+        />
+      )}
+
       <div className="actions">
         <button onClick={act('reload')} disabled={!acc.enabled}>
           <Icon name="reload" /> Recarregar
@@ -142,6 +154,74 @@ function AccountPanel({
           <Icon name="trash" /> Remover
         </button>
       </div>
+    </div>
+  )
+}
+
+const nf = new Intl.NumberFormat('pt-BR')
+const n = (v: number): string => nf.format(Math.round(v))
+const pct = (v: number): string => `${Math.round(v * 100)}%`
+
+function AutoBox({
+  auto,
+  dryRun,
+  on,
+  onToggle
+}: {
+  auto: AutoStatus | null
+  dryRun: boolean
+  on: boolean
+  onToggle(on: boolean): void
+}) {
+  const head = (
+    <div className="metric-head">
+      <label className="check">
+        <input type="checkbox" checked={on} onChange={(e) => onToggle(e.target.checked)} />
+        Automação{dryRun ? ' (simulação)' : ''}
+      </label>
+      <strong className={on ? (auto?.state ?? 'aguardando') : 'aguardando'}>
+        {!on ? 'desligada nesta conta' : auto ? { ok: 'rodando', aguardando: 'aguardando', erro: 'parada' }[auto.state] : 'aguardando'}
+      </strong>
+    </div>
+  )
+  if (!on) return <div className="auto-box">{head}</div>
+  return (
+    <div className="auto-box">
+      {head}
+      {!auto && <span className="muted">Primeira verificação em até 1 min.</span>}
+      {auto && auto.state !== 'ok' && <span className={auto.state}>{auto.message}</span>}
+      {auto?.pokemon && (
+        <span className="muted">
+          {auto.pokemon}
+          {auto.hpMax ? ` · HP ${n(auto.hpMax)}` : ''}
+          {auto.limiar != null ? ` · poção abaixo de ${pct(auto.limiar)}` : ''}
+        </span>
+      )}
+      {auto?.hunt && (
+        <span className={auto.hunt.safe ? '' : 'risco'}>
+          Agora: {auto.hunt.name} · {n(auto.hunt.xpH)} XP/h · golpe {pct(auto.hunt.hitPct)}
+          {auto.hunt.safe ? '' : ' (acima do limite)'}
+        </span>
+      )}
+      {auto?.best && auto.best.name !== auto.hunt?.name && (
+        <span className="muted">
+          Melhor segura: {auto.best.name} · {n(auto.best.xpH)} XP/h · golpe {pct(auto.best.hitPct)}
+        </span>
+      )}
+      {auto?.huntNote && <span className="muted">Hunt: {auto.huntNote}</span>}
+      {auto?.potion && (
+        <span className="muted">
+          Usando {auto.potion.name}: {n(auto.potion.stock)} · ~{n(auto.potion.perHour)}/h
+          {auto.potion.hours != null && Number.isFinite(auto.potion.hours)
+            ? ` · estoque dura ${auto.potion.hours.toFixed(1)} h`
+            : ''}
+        </span>
+      )}
+      {auto?.potionNote && <span className="muted">Compra: {auto.potionNote}</span>}
+      {auto?.potion?.buy && auto.potion.buy !== auto.potion.name && (
+        <span className="muted">Repõe com: {auto.potion.buy}</span>
+      )}
+      {auto?.version && <span className="muted small">Versão da automação: {auto.version}</span>}
     </div>
   )
 }

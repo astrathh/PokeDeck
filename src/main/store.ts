@@ -22,7 +22,29 @@ export const DEFAULT_CONFIG: AppConfig = {
     versionUrl: '',
     versionRegex: ''
   },
-  extensions: ['hunt-for-pokeidle']
+  extensions: ['hunt-for-pokeidle'],
+  auto: {
+    enabled: false,
+    dryRun: true,
+    intervalMin: 5,
+    excludedIds: [],
+    potions: {
+      enabled: true,
+      manageList: true,
+      refillBelowHours: 1,
+      stockHours: 2,
+      maxGoldPct: 20
+    },
+    hunts: {
+      enabled: true,
+      minStayMin: 15,
+      viaCenter: false,
+      lowLevel: 200,
+      levelOf: 'trainer',
+      lowLevelMaxHitPct: 30,
+      requirePositiveGold: false
+    }
+  }
 }
 
 /** Configuração persistida em %APPDATA%/deck-multiconta/config.json */
@@ -42,7 +64,13 @@ export class ConfigStore {
         ...DEFAULT_CONFIG,
         ...raw,
         watchdog: { ...DEFAULT_CONFIG.watchdog, ...raw.watchdog },
-        updateWatch: { ...DEFAULT_CONFIG.updateWatch, ...raw.updateWatch }
+        updateWatch: { ...DEFAULT_CONFIG.updateWatch, ...raw.updateWatch },
+        auto: {
+          ...DEFAULT_CONFIG.auto,
+          ...raw.auto,
+          potions: { ...DEFAULT_CONFIG.auto.potions, ...raw.auto?.potions },
+          hunts: { ...DEFAULT_CONFIG.auto.hunts, ...raw.auto?.hunts }
+        }
       }
     } catch {
       return structuredClone(DEFAULT_CONFIG)

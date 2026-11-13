@@ -8,6 +8,7 @@ import { AccountManager, partitionFor } from './accounts'
 import { UpdateWatcher } from './updateWatcher'
 import { startMetrics } from './metrics'
 import { ExtensionManager } from './extensions'
+import { AutoPilot } from './autoPilot'
 
 // Pasta de dados alternativa (testes, ou um segundo Deck separado). Precisa vir antes da trava,
 // que é por pasta de dados.
@@ -75,6 +76,7 @@ app.whenReady().then(() => {
 
   const store = new ConfigStore()
   const log = new Logger()
+  log.toFiles(join(app.getPath('userData'), 'logs'), (id) => store.get().accounts.find((a) => a.id === id)?.name ?? id)
   const win = createWindow()
   mainWindow = win
 
@@ -82,6 +84,9 @@ app.whenReady().then(() => {
   extensions.start()
   const manager = new AccountManager(win, store, log, extensions)
   const updates = new UpdateWatcher(store, log, manager)
+  const autoPilot = new AutoPilot(store, log, manager, () => extensions.autoVersion())
+  // auto.js mudou com o Deck aberto (desenvolvimento): recarrega as contas, uma a uma, com a versão nova.
+  extensions.onBuiltinsChanged = (v) => manager.reloadAll(`automação atualizada (${v})`)
 
   const send = (channel: string, payload: unknown): void => {
     if (!win.isDestroyed()) win.webContents.send(channel, payload)
@@ -104,6 +109,10 @@ app.whenReady().then(() => {
     manager.onConfigChanged(prev, next)
     if (prev.updateWatch !== next.updateWatch || prev.gameUrl !== next.gameUrl) updates.restart()
     if (JSON.stringify(prev.extensions) !== JSON.stringify(next.extensions)) void extensions.refresh()
+    if (JSON.stringify(prev.auto) !== JSON.stringify(next.auto)) {
+      if (prev.auto.enabled && !next.auto.enabled) log.info(null, 'Automação desligada')
+      autoPilot.restart()
+    }
     return publishConfig(next)
   })
 
@@ -146,14 +155,17 @@ app.whenReady().then(() => {
   manager.sync()
   manager.restartWatchdog()
   updates.restart()
+  autoPilot.restart()
   log.info(null, 'Deck iniciado')
 
   win.on('closed', () => {
     stopMetrics()
     updates.stop()
+    autoPilot.stop()
     extensions.stop()
     manager.dispose()
     store.flush()
+    log.flush()
     mainWindow = null
     app.quit()
   })

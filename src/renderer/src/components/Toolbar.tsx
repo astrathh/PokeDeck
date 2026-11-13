@@ -39,6 +39,19 @@ export function Toolbar({ config, update, onReloadAll, onCheckUpdate }: Props) {
         <Icon name="leaf" /> Econômico
       </button>
 
+      <button
+        className={`toggle ${config.auto.enabled ? (config.auto.dryRun ? 'sim' : 'on') : ''}`}
+        onClick={() => update({ auto: { ...config.auto, enabled: !config.auto.enabled } })}
+        title={
+          config.auto.enabled
+            ? 'Clique para desligar a automação em todas as contas'
+            : 'Liga a compra de poção e a troca de hunt (regras nas Configurações)'
+        }
+      >
+        <Icon name="bolt" /> Automação
+        {config.auto.enabled && <span className="badge">{config.auto.dryRun ? 'simulação' : 'ativa'}</span>}
+      </button>
+
       <div className="spacer" />
 
       <button className="ghost" onClick={onCheckUpdate} title="Compara a versão do jogo agora">

@@ -18,7 +18,8 @@ const PATHS = {
   home: 'M4 11l8-7 8 7 M6 9v11h12V9',
   pause: 'M8 5v14 M16 5v14',
   play: 'M7 5l12 7-12 7z',
-  close: 'M6 6l12 12 M18 6L6 18'
+  close: 'M6 6l12 12 M18 6L6 18',
+  bolt: 'M13 3L5 14h6l-1 7 8-11h-6l1-7z'
 } as const
 
 export type IconName = keyof typeof PATHS

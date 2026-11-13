@@ -28,6 +28,63 @@ export interface UpdateWatchConfig {
   versionRegex: string
 }
 
+/** Automação (resources/deck-auto + main/autoPilot.ts). Vale igual para todas as contas. */
+export interface AutoConfig {
+  /** Chave geral: desligado, o Deck não chama o script e nada acontece */
+  enabled: boolean
+  /** Simulação: só registra em Eventos o que faria */
+  dryRun: boolean
+  /** De quanto em quanto tempo reavalia as hunts (min) */
+  intervalMin: number
+  /** Contas em que a automação NÃO roda (as demais rodam; conta nova entra ligada) */
+  excludedIds: string[]
+  potions: {
+    enabled: boolean
+    /** Deixa só a poção escolhida na lista "Usar Poções" do jogo */
+    manageList: boolean
+    /** Compra quando o estoque não dá para estas horas… */
+    refillBelowHours: number
+    /** …e completa até estas horas */
+    stockHours: number
+    /** Uma compra nunca passa desta % do ouro da conta */
+    maxGoldPct: number
+  }
+  hunts: {
+    enabled: boolean
+    /** Passar pelo Centro Pokémon antes de ir para a hunt nova (padrão: troca direto) */
+    viaCenter: boolean
+    /** Tempo mínimo numa hunt antes de trocar por XP/h (min); evita ficar trocando por oscilação da estimativa */
+    minStayMin: number
+    /** Contas com nível até este valor usam o teto de risco abaixo */
+    lowLevel: number
+    levelOf: 'trainer' | 'pokemon'
+    /** Teto do pior golpe do selvagem, em % do HP máximo, para contas de nível baixo */
+    lowLevelMaxHitPct: number
+    /** Recusa hunts em que o gasto com poção passa do ouro que a hunt rende */
+    requirePositiveGold: boolean
+  }
+}
+
+export interface AutoStatus {
+  state: 'ok' | 'aguardando' | 'erro'
+  message: string
+  checkedAt: number
+  pokemon?: string
+  hpMax?: number
+  /** Limiar da poção automática do jogo (0–1) */
+  limiar?: number
+  /** Por que trocou ou não trocou de hunt neste tick */
+  huntNote?: string
+  /** Versão da automação carregada (hash do auto.js) */
+  version?: string
+  /** Por que comprou ou não comprou poção neste tick */
+  potionNote?: string
+  /** name/stock: a melhor em estoque (a que o jogo usa); hours: todas as poções somadas; buy: a que compraria. */
+  potion?: { name: string; stock: number; perHour: number; hours: number; buy?: string }
+  hunt?: { name: string; xpH: number; hitPct: number; safe: boolean }
+  best?: { name: string; xpH: number; hitPct: number }
+}
+
 export type LayoutMode = 'grid' | 'columns' | 'focus'
 
 export interface AppConfig {
@@ -41,6 +98,7 @@ export interface AppConfig {
   updateWatch: UpdateWatchConfig
   /** Extensões da addons.mozilla.org (slug ou link), carregadas em todas as contas */
   extensions: string[]
+  auto: AutoConfig
 }
 
 export interface AccountRuntime {
@@ -54,6 +112,7 @@ export interface AccountRuntime {
   lastEvent: string | null
   /** Quando a conta ficou online pela última vez */
   since: number
+  auto: AutoStatus | null
 }
 
 export interface MetricsSample {

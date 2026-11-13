@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Deck Auto",
+  "version": "0.1.0",
+  "description": "Automação do Deck para o Pokeidle: compra de poção no NPC e troca de hunt por XP/h do treinador com limite de risco. Só age quando o Deck chama window.__deckAuto.tick().",
+  "content_scripts": [
+    {
+      "matches": ["https://pokeidle.io/*"],
+      "js": ["auto.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}
