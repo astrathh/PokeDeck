@@ -17,6 +17,11 @@ import type { ExtensionManager } from './extensions'
 const AUTO_RELOAD_COOLDOWN_MS = 2 * 60_000
 /** Página que começou a carregar e não terminou nesse tempo é recarregada pelo watchdog. */
 const LOADING_STUCK_MS = 3 * 60_000
+/**
+ * Página com o DOM pronto, mas que não termina de carregar (algum recurso de terceiros pendurado):
+ * depois desse tempo a conta conta como pronta — o jogo já está rodando e a automação não pode esperar.
+ */
+const DOM_READY_GRACE_MS = 20_000
 
 /** Popups desses domínios abrem dentro do app (na mesma sessão da conta), p/ login social funcionar. */
 const AUTH_HOSTS = [/(^|\.)google\.com$/, /(^|\.)discord\.com$/, /(^|\.)facebook\.com$/, /(^|\.)twitch\.tv$/, /(^|\.)apple\.com$/]
@@ -36,6 +41,7 @@ interface Slot {
   unresponsiveSince: number | null
   /** Desde quando está no status atual (para pegar carregamento travado) */
   statusSince: number
+  domReadyTimer: NodeJS.Timeout | null
   failCount: number
   lastAutoReloadAt: number
   retryTimer: NodeJS.Timeout | null
@@ -132,6 +138,7 @@ export class AccountManager extends EventEmitter {
       detachedWindow: null,
       unresponsiveSince: null,
       statusSince: Date.now(),
+      domReadyTimer: null,
       failCount: 0,
       lastAutoReloadAt: 0,
       retryTimer: null,
@@ -197,12 +204,31 @@ export class AccountManager extends EventEmitter {
       if (!this.alive(slot)) return
       // Recarregamento que não partiu do Deck (o próprio jogo recarregou a página): registra, senão a
       // automação some sem explicação enquanto a conta carrega.
+      // Carregamento novo: o prazo do dom-ready anterior não vale mais.
+      if (slot.domReadyTimer) clearTimeout(slot.domReadyTimer)
+      slot.domReadyTimer = null
       if (slot.status === 'ready') this.log.info(id, 'A página começou a recarregar (pedido do próprio jogo)')
       this.setStatus(slot, slot.status === 'reloading' ? 'reloading' : 'loading')
     })
 
+    wc.on('dom-ready', () => {
+      if (!this.alive(slot)) return
+      if (slot.domReadyTimer) clearTimeout(slot.domReadyTimer)
+      slot.domReadyTimer = setTimeout(() => {
+        slot.domReadyTimer = null
+        if (!this.alive(slot) || (slot.status !== 'loading' && slot.status !== 'reloading')) return
+        this.log.info(id, 'Página aberta, mas algum recurso não terminou de carregar; seguindo assim mesmo')
+        slot.failCount = 0
+        slot.unresponsiveSince = null
+        slot.url = wc.getURL()
+        this.setStatus(slot, 'ready', null)
+      }, DOM_READY_GRACE_MS)
+    })
+
     wc.on('did-finish-load', () => {
       if (!this.alive(slot)) return
+      if (slot.domReadyTimer) clearTimeout(slot.domReadyTimer)
+      slot.domReadyTimer = null
       slot.failCount = 0
       slot.unresponsiveSince = null
       slot.url = wc.getURL()
