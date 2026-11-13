@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import type { AppConfig, AutoConfig, UpdateWatchConfig, WatchdogConfig } from '../../../shared/types'
+import type { AppConfig, AutoConfig, PerformanceConfig, UpdateWatchConfig, WatchdogConfig } from '../../../shared/types'
 import { Icon } from './Icon'
 
 interface Props {
@@ -16,6 +16,8 @@ export function Settings({ config, onClose, onSave }: Props) {
   const [patterns, setPatterns] = useState(config.watchdog.disconnectPatterns.join('\n'))
   const [extensions, setExtensions] = useState(config.extensions.join('\n'))
 
+  const [perf, setPerf] = useState<PerformanceConfig>(config.performance)
+  const setP = (p: Partial<PerformanceConfig>): void => setPerf((x) => ({ ...x, ...p }))
   const [auto, setAuto] = useState<AutoConfig>(config.auto)
   const setA = (p: Partial<AutoConfig>): void => setAuto((a) => ({ ...a, ...p }))
   const setAP = (p: Partial<AutoConfig['potions']>): void => setAuto((a) => ({ ...a, potions: { ...a.potions, ...p } }))
@@ -37,6 +39,7 @@ export function Settings({ config, onClose, onSave }: Props) {
           .filter(Boolean)
       },
       updateWatch,
+      performance: perf,
       auto,
       extensions: extensions
         .split('\n')
@@ -65,6 +68,21 @@ export function Settings({ config, onClose, onSave }: Props) {
             <Field label="Intervalo entre recarregamentos em fila (s)" hint="Evita recarregar todas as contas ao mesmo tempo.">
               <input type="number" min={0} value={staggerSec} onChange={(e) => setStaggerSec(Number(e.target.value))} />
             </Field>
+          </fieldset>
+
+          <fieldset>
+            <legend>Desempenho</legend>
+            <Field
+              label="FPS das contas fora de foco"
+              hint="A conta selecionada (e as destacadas em janela própria) rodam normal. As outras desenham a tela só esse tanto de vezes por segundo: menos CPU e GPU. O jogo e a automação não mudam. 0 = sem limite."
+            >
+              <input type="number" min={0} max={60} value={perf.backgroundFps} onChange={(e) => setP({ backgroundFps: Math.min(60, Math.max(0, Number(e.target.value) || 0)) })} />
+            </Field>
+            <label className="check">
+              <input type="checkbox" checked={perf.blockTrackers} onChange={(e) => setP({ blockTrackers: e.target.checked })} />
+              Bloquear rastreadores nas contas (Facebook Pixel, Google Analytics)
+            </label>
+            <p className="muted small">Não fazem parte do jogo: só gastam memória e já deixaram a página presa carregando.</p>
           </fieldset>
 
           <fieldset>

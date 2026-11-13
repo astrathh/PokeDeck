@@ -33,6 +33,19 @@ instalador não tem assinatura digital, o Windows avisa ("Mais informações →
 
 Ícone: `build/icon.svg` (arte original: três cartas em leque) → `build/icon.png` (512×512).
 
+## Desempenho
+
+Configurações → Desempenho:
+
+- **FPS das contas fora de foco** (padrão 10): o jogo desenha a tela num canvas com animação contínua em todas as
+  contas. A conta selecionada (e as destacadas em janela própria) roda normal; as outras desenham só esse tanto de
+  vezes por segundo (`resources/deck-auto/perf.js`, que limita o `requestAnimationFrame`). O jogo roda no servidor e a
+  automação não depende de quadros. 0 = sem limite.
+- **Bloquear rastreadores** (padrão ligado): Facebook Pixel e Google Analytics/Tag Manager não carregam nas contas.
+  O Turnstile da Cloudflare nunca é bloqueado.
+- Corretor ortográfico desligado (o Electron carregaria um dicionário por conta) e gráfico da interface com no
+  máximo 300 pontos.
+
 ## Como funciona
 
 - **Uma sessão por conta.** Cada conta é uma `WebContentsView` numa partição `persist:acc-<id>`, com cookies, localStorage e IndexedDB separados. Os dados ficam em `%APPDATA%/deck-multiconta/Partitions/`.

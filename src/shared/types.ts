@@ -96,6 +96,14 @@ export interface AutoStatus {
   best?: { name: string; xpH: number; hitPct: number }
 }
 
+/** Ajustes para gastar menos RAM/CPU/GPU. */
+export interface PerformanceConfig {
+  /** Bloqueia rastreadores de terceiros nas contas (Facebook Pixel, Google Analytics/Tag Manager) */
+  blockTrackers: boolean
+  /** FPS das contas fora de foco (a selecionada roda sem limite). 0 = sem limite */
+  backgroundFps: number
+}
+
 export type LayoutMode = 'grid' | 'columns' | 'focus'
 
 export interface AppConfig {
@@ -110,6 +118,7 @@ export interface AppConfig {
   /** Extensões da addons.mozilla.org (slug ou link), carregadas em todas as contas */
   extensions: string[]
   auto: AutoConfig
+  performance: PerformanceConfig
 }
 
 export interface AccountRuntime {
@@ -176,6 +185,8 @@ export interface DeckApi {
   getLogs(): Promise<LogEntry[]>
   setBounds(rects: Record<string, Rect | null>): void
   setOverlay(open: boolean): void
+  /** Conta selecionada na interface (roda sem limite de FPS) */
+  setSelected(id: string | null): void
   onConfig(cb: (c: AppConfig) => void): Unsubscribe
   onRuntime(cb: (r: AccountRuntime[]) => void): Unsubscribe
   onMetrics(cb: (s: MetricsSample) => void): Unsubscribe

@@ -23,6 +23,10 @@ export const DEFAULT_CONFIG: AppConfig = {
     versionRegex: ''
   },
   extensions: ['hunt-for-pokeidle'],
+  performance: {
+    blockTrackers: true,
+    backgroundFps: 10
+  },
   auto: {
     enabled: false,
     dryRun: true,
@@ -65,6 +69,7 @@ export class ConfigStore {
         ...raw,
         watchdog: { ...DEFAULT_CONFIG.watchdog, ...raw.watchdog },
         updateWatch: { ...DEFAULT_CONFIG.updateWatch, ...raw.updateWatch },
+        performance: { ...DEFAULT_CONFIG.performance, ...raw.performance },
         auto: {
           ...DEFAULT_CONFIG.auto,
           ...raw.auto,

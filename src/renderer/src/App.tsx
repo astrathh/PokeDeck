@@ -24,6 +24,9 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [appUpdate, setAppUpdate] = useState<AppUpdateState | null>(null)
 
+  // A conta selecionada roda sem limite de FPS; as outras, com o limite das Configurações.
+  useEffect(() => deck.setSelected(selected), [deck, selected])
+
   useEffect(() => {
     void deck.getAppUpdate().then(setAppUpdate)
     return deck.onAppUpdate(setAppUpdate)

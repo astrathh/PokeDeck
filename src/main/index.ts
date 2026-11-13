@@ -40,7 +40,8 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      spellcheck: false
     }
   })
 
@@ -162,6 +163,7 @@ app.whenReady().then(() => {
   ipcMain.handle('logs:get', () => log.all())
   ipcMain.on('layout:bounds', (_e, rects: Record<string, Rect | null>) => manager.setBounds(rects))
   ipcMain.on('layout:overlay', (_e, open: boolean) => manager.setOverlay(open))
+  ipcMain.on('layout:selected', (_e, id: string | null) => manager.setSelected(id))
 
   manager.sync()
   manager.restartWatchdog()

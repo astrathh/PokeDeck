@@ -8,6 +8,13 @@ interface Props {
 /** Gráfico de linha mínimo, sem dependência. */
 export function Sparkline({ values, max, height = 44, color = 'var(--accent)' }: Props) {
   const W = 300
+  // Mais pontos que a largura do gráfico só custam processamento: fica com no máximo W (o maior de cada faixa).
+  if (values.length > W) {
+    const n = Math.ceil(values.length / W)
+    const reduzido: number[] = []
+    for (let i = 0; i < values.length; i += n) reduzido.push(Math.max(...values.slice(i, i + n)))
+    values = reduzido
+  }
   if (values.length < 2) return <div className="sparkline-empty" style={{ height }} />
   const top = Math.max(max ?? 0, ...values, 1)
   const step = W / (values.length - 1)

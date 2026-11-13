@@ -23,6 +23,21 @@ const LOADING_STUCK_MS = 3 * 60_000
  */
 const DOM_READY_GRACE_MS = 20_000
 
+/**
+ * Rastreadores de terceiros que a página do jogo carrega (Facebook Pixel, Google Analytics/Tag
+ * Manager). Não fazem parte do jogo: só gastam RAM/CPU em cada conta e já deixaram a página presa
+ * carregando. O Turnstile (challenges.cloudflare.com) nunca entra aqui.
+ */
+const TRACKER_URLS = [
+  '*://connect.facebook.net/*',
+  '*://www.facebook.com/tr*',
+  '*://*.googletagmanager.com/*',
+  '*://*.google-analytics.com/*',
+  '*://analytics.google.com/*',
+  '*://*.doubleclick.net/*',
+  '*://*.ecs.us-east-1.on.aws/events*'
+]
+
 /** Popups desses domínios abrem dentro do app (na mesma sessão da conta), p/ login social funcionar. */
 const AUTH_HOSTS = [/(^|\.)google\.com$/, /(^|\.)discord\.com$/, /(^|\.)facebook\.com$/, /(^|\.)twitch\.tv$/, /(^|\.)apple\.com$/]
 
@@ -114,6 +129,8 @@ export class AccountManager extends EventEmitter {
     // contraditório com o resto do navegador, e o Turnstile da Cloudflare reprova
     // (testado: UA limpo falhou 3/3, UA original passou 3/3).
 
+    this.blockTrackers(ses)
+
     const view = new WebContentsView({
       webPreferences: {
         partition,
@@ -121,7 +138,9 @@ export class AccountManager extends EventEmitter {
         nodeIntegration: false,
         sandbox: true,
         // O jogo continua rodando em velocidade normal mesmo com a view escondida.
-        backgroundThrottling: false
+        backgroundThrottling: false,
+        // Sem corretor ortográfico: carregaria um dicionário por conta sem uso nenhum.
+        spellcheck: false
       }
     })
     view.setBackgroundColor(BG)
@@ -213,6 +232,7 @@ export class AccountManager extends EventEmitter {
 
     wc.on('dom-ready', () => {
       if (!this.alive(slot)) return
+      this.applyFps(slot)
       if (slot.domReadyTimer) clearTimeout(slot.domReadyTimer)
       slot.domReadyTimer = setTimeout(() => {
         slot.domReadyTimer = null
@@ -311,6 +331,36 @@ export class AccountManager extends EventEmitter {
     }, ms)
   }
 
+  // ---------------------------------------------------------------- desempenho
+
+  private trackerSessions = new WeakSet<Electron.Session>()
+  /** Bloqueia rastreadores na sessão da conta (uma vez por sessão; a chave da config vale na hora). */
+  private blockTrackers(ses: Electron.Session): void {
+    if (this.trackerSessions.has(ses)) return
+    this.trackerSessions.add(ses)
+    ses.webRequest.onBeforeRequest({ urls: TRACKER_URLS }, (_details, cb) => {
+      cb({ cancel: this.cfg.performance?.blockTrackers !== false })
+    })
+  }
+
+  private selected: string | null = null
+  /** Conta selecionada na interface: roda sem limite de FPS; as outras, com `backgroundFps`. */
+  setSelected(id: string | null): void {
+    if (this.selected === id) return
+    this.selected = id
+    for (const slot of this.slots.values()) this.applyFps(slot)
+  }
+
+  private applyFps(slot: Slot): void {
+    if (!this.alive(slot)) return
+    const limite = Math.max(0, Number(this.cfg.performance?.backgroundFps) || 0)
+    // Selecionada ou destacada numa janela própria (está sendo vista): sem limite.
+    const fps = slot.id === this.selected || slot.detachedWindow ? 0 : limite
+    void slot.view.webContents
+      .executeJavaScript(`window.__deckPerf ? (window.__deckPerf.setFps(${fps}), true) : false`, false)
+      .catch(() => undefined)
+  }
+
   private setStatus(slot: Slot, status: AccountStatus, event?: string | null): void {
     if (status === 'ready' && slot.status !== 'ready') slot.since = Date.now()
     if (status !== slot.status) slot.statusSince = Date.now()
@@ -385,10 +435,12 @@ export class AccountManager extends EventEmitter {
         slot.view.setVisible(false)
       }
       this.applyLayout()
+      this.applyFps(slot)
       this.emitRuntime()
     })
     this.log.info(slot.id, 'Conta destacada em janela própria')
     this.applyLayout()
+    this.applyFps(slot)
     this.emitRuntime()
   }
 
@@ -472,6 +524,9 @@ export class AccountManager extends EventEmitter {
     }
     this.sync()
     if (prev.watchdog !== next.watchdog) this.restartWatchdog()
+    if (JSON.stringify(prev.performance) !== JSON.stringify(next.performance)) {
+      for (const slot of this.slots.values()) this.applyFps(slot)
+    }
   }
 
   // ---------------------------------------------------------------- watchdog
