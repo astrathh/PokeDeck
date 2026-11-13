@@ -35,6 +35,11 @@ O repositório usa **releases imutáveis** (Release publicada não aceita mais a
 como rascunho, sobe o instalador e o `latest.yml`, confere e só então publica. Se o passo de montar falhar, sobra um
 rascunho (invisível para quem usa): apague-o em Releases e gere a próxima versão.
 
+A **descrição da Release** é gerada dos commits desde a última Release publicada (`scripts/release-notes.mjs`):
+`feat:` vira "Novidades", `fix:` "Correções", `perf:` "Desempenho", o resto "Outras mudanças"; `ci:`, `chore:`,
+`docs:`, `test:`, `build:` e `fix(release):` ficam de fora. Escreva o assunto do commit pensando em quem usa o app
+(ex.: `feat: aviso quando a conta fica sem poção`). Dá para editar a descrição depois na página da Release.
+
 Ícone: `build/icon.svg` (arte original: três cartas em leque) → `build/icon.png` (512×512).
 
 ## Desempenho

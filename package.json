@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
     "test:auto": "node tests/deck-auto.test.mjs",
-    "release": "electron-vite build && electron-builder --win nsis --publish always"
+    "release": "electron-vite build && electron-builder --win nsis --publish always",
+    "test": "node tests/deck-auto.test.mjs && node tests/release-notes.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

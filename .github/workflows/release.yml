@@ -20,6 +20,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # histórico e tags, para a descrição da Release
 
       - uses: actions/setup-node@v5
         with:
@@ -28,10 +30,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Conferir tipos e testes da automação
+      - name: Conferir tipos e testes
         run: |
           npm run typecheck
-          npm run test:auto
+          npm test
 
       - name: Montar o instalador e subir num rascunho de Release
         run: npm run release
@@ -45,6 +47,17 @@ jobs:
           echo "$assets"
           echo "$assets" | grep -q '^latest.yml$'
           echo "$assets" | grep -q '\.exe$'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Escrever a descrição (commits desde a última Release publicada)
+        shell: bash
+        run: |
+          anterior=$(gh release list --exclude-drafts --limit 30 --json tagName             --jq '[.[] | select(.tagName != env.GITHUB_REF_NAME)][0].tagName // ""')
+          echo "descrição: commits de '${anterior:-início}' até $GITHUB_REF_NAME"
+          node scripts/release-notes.mjs "$anterior" "$GITHUB_REF_NAME" > notas.md
+          cat notas.md
+          gh release edit "$GITHUB_REF_NAME" --title "PokeDeck ${GITHUB_REF_NAME#v}" --notes-file notas.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
