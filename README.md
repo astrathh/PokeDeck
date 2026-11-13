@@ -98,7 +98,7 @@ Botão **Automação** na barra (regras em Configurações → Automação). Val
 - **Gasto real de poção:** a automação mede o HP em poções que some do estoque (últimos 30 min, mesma hunt e pokémon) e usa o maior entre o medido e a estimativa do /hunt para decidir a compra. O painel mostra "Gasto: medido ~N/h · estimado ~M/h".
 - **Poção fraca demais:** poção que cura menos que um golpe do selvagem na hunt atual (ex.: Small de 60 HP num pokémon de 19k levando golpes de 2.900) não é marcada, não é comprada, não vira reserva quando a boa acaba e não conta no estoque. Em Eventos aparece como "ignoradas".
 - **Conta parada sem aviso:** se a página da conta não está pronta (carregando, caída, sem resposta), Eventos registra "Auto esperando: a página da conta não está pronta…". Página que começou a carregar e não terminou em 3 min é recarregada pelo watchdog; recarregamento pedido pelo próprio jogo também aparece em Eventos.
-- Começa em **modo simulação**: só escreve em Eventos o que faria. Desligue a simulação quando os números baterem com o jogo.
+- Vem **ligada** em todas as contas (é a função principal do PokeDeck). O **modo simulação** (Configurações → Automação) só escreve em Eventos o que faria, sem agir. Vale para instalações novas: quem já salvou configurações mantém o que escolheu.
 - Os termos do Pokeidle permitem automação que siga as mesmas regras de quem joga na mão.
 
 ## Estrutura

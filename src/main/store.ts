@@ -26,9 +26,10 @@ export const DEFAULT_CONFIG: AppConfig = {
   performance: {
     blockTrackers: true
   },
+  // A automação é a função principal do PokeDeck: vem ligada, de verdade (não em simulação).
   auto: {
-    enabled: false,
-    dryRun: true,
+    enabled: true,
+    dryRun: false,
     intervalMin: 5,
     excludedIds: [],
     potions: {
