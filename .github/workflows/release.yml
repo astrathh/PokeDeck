@@ -1,7 +1,11 @@
-# Publica o instalador do Deck nas Releases do GitHub quando uma tag de versão é enviada:
-#   npm version patch        (0.1.0 → 0.1.1, cria o commit e a tag v0.1.1)
+# Publica o instalador do PokeDeck nas Releases do GitHub quando uma tag de versão é enviada:
+#   npm version patch        (0.1.3 → 0.1.4, cria o commit e a tag v0.1.4)
 #   git push --follow-tags
-# O Deck instalado dos amigos procura versão nova nessas Releases e se atualiza sozinho.
+# O PokeDeck instalado procura versão nova nessas Releases e se atualiza sozinho.
+#
+# O repositório usa releases imutáveis: uma Release publicada não aceita mais arquivos. Por isso o
+# electron-builder cria a Release como RASCUNHO, sobe o instalador e o latest.yml, e só no último passo
+# ela é publicada (e aí fica imutável, já completa).
 name: Release
 
 on:
@@ -15,9 +19,9 @@ jobs:
   release:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -29,7 +33,23 @@ jobs:
           npm run typecheck
           npm run test:auto
 
-      - name: Montar e publicar o instalador
+      - name: Montar o instalador e subir num rascunho de Release
         run: npm run release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Conferir que o rascunho tem o instalador
+        shell: bash
+        run: |
+          assets=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')
+          echo "$assets"
+          echo "$assets" | grep -q '^latest.yml$'
+          echo "$assets" | grep -q '\.exe$'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar a Release
+        shell: bash
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
