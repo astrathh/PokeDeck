@@ -2,7 +2,7 @@
   "name": "deck-multiconta",
   "version": "0.1.0",
   "private": true,
-  "description": "Navegador multiconta para jogos idle no navegador",
+  "description": "PokeDeck: navegador multiconta para o Pokeidle",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -28,7 +28,7 @@
   },
   "build": {
     "appId": "local.deck.multiconta",
-    "productName": "Deck",
+    "productName": "PokeDeck",
     "directories": {
       "buildResources": "build"
     },
@@ -44,8 +44,8 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Deck",
-      "artifactName": "Deck-Setup-${version}.${ext}"
+      "shortcutName": "PokeDeck",
+      "artifactName": "PokeDeck-Setup-${version}.${ext}"
     },
     "publish": [
       {

@@ -5,7 +5,7 @@ export function Welcome({ onSave }: { onSave(url: string): void }) {
   const valid = /^https?:\/\/\S+$/i.test(url.trim())
   return (
     <div className="welcome">
-      <h1>Qual jogo o Deck vai abrir?</h1>
+      <h1>Qual jogo o PokeDeck vai abrir?</h1>
       <p className="muted">Cole a URL do jogo. Dá para trocar depois nas configurações.</p>
       <form
         onSubmit={(e) => {

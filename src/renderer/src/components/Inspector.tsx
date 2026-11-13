@@ -148,7 +148,7 @@ function AccountPanel({
         <button
           className="danger"
           onClick={() => {
-            if (confirm(`Remover "${acc.name}" do Deck? A sessão dela será apagada.`)) onRemove(acc.id)
+            if (confirm(`Remover "${acc.name}" do PokeDeck? A sessão dela será apagada.`)) onRemove(acc.id)
           }}
         >
           <Icon name="trash" /> Remover
@@ -245,7 +245,7 @@ function EventList({
     .filter((l) => !accountId || l.accountId === accountId || l.accountId === null)
     .slice(-80)
     .reverse()
-  const nameOf = (id: string | null): string => (id ? (names.find((n) => n.id === id)?.name ?? id) : 'Deck')
+  const nameOf = (id: string | null): string => (id ? (names.find((n) => n.id === id)?.name ?? id) : 'PokeDeck')
   return (
     <div className="events">
       <div className="section-label">Eventos</div>

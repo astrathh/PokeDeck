@@ -107,7 +107,7 @@ export function Settings({ config, onClose, onSave }: Props) {
             <Field label="URL de versão (opcional)" hint="Vazio usa a URL do jogo. Se o jogo tiver um endpoint de versão, coloque aqui.">
               <input value={updateWatch.versionUrl} onChange={(e) => setU({ versionUrl: e.target.value })} placeholder="https://…/version.json" />
             </Field>
-            <Field label="Regex de versão (opcional)" hint='Ex.: "version":"([^"]+)". Sem regex, o Deck compara os arquivos .js/.css da página.'>
+            <Field label="Regex de versão (opcional)" hint='Ex.: "version":"([^"]+)". Sem regex, o PokeDeck compara os arquivos .js/.css da página.'>
               <input value={updateWatch.versionRegex} onChange={(e) => setU({ versionRegex: e.target.value })} />
             </Field>
           </fieldset>
@@ -225,7 +225,7 @@ export function Settings({ config, onClose, onSave }: Props) {
             <legend>Extensões</legend>
             <Field
               label="Complementos da addons.mozilla.org (um por linha)"
-              hint="Cole o link ou o nome curto, ex.: hunt-for-pokeidle. O Deck baixa, confere o hash e procura atualização a cada 6h. Só funcionam extensões que agem dentro da página (sem popup no ícone). Depois de mudar, recarregue as contas."
+              hint="Cole o link ou o nome curto, ex.: hunt-for-pokeidle. O PokeDeck baixa, confere o hash e procura atualização a cada 6h. Só funcionam extensões que agem dentro da página (sem popup no ícone). Depois de mudar, recarregue as contas."
             >
               <textarea rows={3} value={extensions} onChange={(e) => setExtensions(e.target.value)} />
             </Field>

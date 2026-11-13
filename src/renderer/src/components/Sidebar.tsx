@@ -17,7 +17,7 @@ export function Sidebar({ config, runtime, selected, onSelect, onAdd, onSettings
     <aside className="sidebar">
       <div className="brand">
         <span className="brand-mark" />
-        Deck
+        PokeDeck
       </div>
 
       <div className="section-label">

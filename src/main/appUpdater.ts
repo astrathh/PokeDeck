@@ -10,8 +10,8 @@ const CHECK_EVERY_MS = 4 * 60 * 60_000
 const FIRST_CHECK_MS = 15_000
 
 /**
- * Atualização do próprio Deck (instalado). Procura nas Releases do GitHub (package.json → build.publish),
- * baixa em segundo plano e instala ao reiniciar — pelo botão na interface ou quando o Deck fechar.
+ * Atualização do próprio PokeDeck (instalado). Procura nas Releases do GitHub (package.json → build.publish),
+ * baixa em segundo plano e instala ao reiniciar — pelo botão na interface ou quando o PokeDeck fechar.
  * Em desenvolvimento (`npm run dev`) não faz nada.
  */
 export class AppUpdater extends EventEmitter {
@@ -45,18 +45,18 @@ export class AppUpdater extends EventEmitter {
       if (this.state.state !== 'ready') this.set({ state: 'idle', checkedAt: Date.now() })
     })
     autoUpdater.on('update-available', (info) => {
-      this.log.info(null, `Deck ${info.version} disponível, baixando…`)
+      this.log.info(null, `PokeDeck ${info.version} disponível, baixando…`)
       this.set({ state: 'downloading', version: info.version, percent: 0 })
     })
     autoUpdater.on('download-progress', (p) => this.set({ state: 'downloading', percent: Math.round(p.percent) }))
     autoUpdater.on('update-downloaded', (info) => {
-      this.log.info(null, `Deck ${info.version} baixado. Reinicie para atualizar (ou ele instala ao fechar)`)
+      this.log.info(null, `PokeDeck ${info.version} baixado. Reinicie para atualizar (ou ele instala ao fechar)`)
       this.set({ state: 'ready', version: info.version, percent: 100 })
     })
     autoUpdater.on('error', (err) => {
       const msg = err?.message ?? String(err)
       // Sem internet etc.: avisa uma vez por mensagem, não a cada 4 h.
-      if (msg !== this.lastError) this.log.warn(null, `Atualização do Deck falhou: ${msg.split('\n')[0]}`)
+      if (msg !== this.lastError) this.log.warn(null, `Atualização do PokeDeck falhou: ${msg.split('\n')[0]}`)
       this.lastError = msg
       if (this.state.state !== 'ready') this.set({ state: 'error', message: msg.split('\n')[0] })
     })
@@ -79,10 +79,10 @@ export class AppUpdater extends EventEmitter {
     }
   }
 
-  /** Fecha o Deck, instala a versão baixada e abre de novo. */
+  /** Fecha o PokeDeck, instala a versão baixada e abre de novo. */
   installNow(): void {
     if (this.state.state !== 'ready') return
-    this.log.info(null, `Reiniciando para instalar o Deck ${this.state.version}`)
+    this.log.info(null, `Reiniciando para instalar o PokeDeck ${this.state.version}`)
     autoUpdater.quitAndInstall(true, true)
   }
 }

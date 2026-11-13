@@ -11,7 +11,7 @@ import { ExtensionManager } from './extensions'
 import { AutoPilot } from './autoPilot'
 import { AppUpdater } from './appUpdater'
 
-// Pasta de dados alternativa (testes, ou um segundo Deck separado). Precisa vir antes da trava,
+// Pasta de dados alternativa (testes, ou um segundo PokeDeck separado). Precisa vir antes da trava,
 // que é por pasta de dados.
 if (process.env['DECK_USER_DATA']) app.setPath('userData', process.env['DECK_USER_DATA'])
 
@@ -31,7 +31,7 @@ function createWindow(): BrowserWindow {
     minWidth: 1100,
     minHeight: 680,
     show: false,
-    title: `Deck ${app.getVersion()}`,
+    title: `PokeDeck ${app.getVersion()}`,
     // Em desenvolvimento usa o ícone do build/; instalado, o .exe já carrega o ícone.
     ...(app.isPackaged ? {} : { icon: join(app.getAppPath(), 'build', 'icon.png') }),
     backgroundColor: '#0d0f14',
@@ -57,7 +57,7 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // F12 abre o DevTools da interface do Deck (só em desenvolvimento)
+  // F12 abre o DevTools da interface do PokeDeck (só em desenvolvimento)
   if (!app.isPackaged) {
     win.webContents.on('before-input-event', (_e, input) => {
       if (input.type === 'keyDown' && input.key === 'F12') win.webContents.toggleDevTools()
@@ -91,7 +91,7 @@ app.whenReady().then(() => {
   const manager = new AccountManager(win, store, log, extensions)
   const updates = new UpdateWatcher(store, log, manager)
   const autoPilot = new AutoPilot(store, log, manager, () => extensions.autoVersion())
-  // auto.js mudou com o Deck aberto (desenvolvimento): recarrega as contas, uma a uma, com a versão nova.
+  // auto.js mudou com o PokeDeck aberto (desenvolvimento): recarrega as contas, uma a uma, com a versão nova.
   extensions.onBuiltinsChanged = (v) => manager.reloadAll(`automação atualizada (${v})`)
 
   const send = (channel: string, payload: unknown): void => {
@@ -168,7 +168,7 @@ app.whenReady().then(() => {
   updates.restart()
   autoPilot.restart()
   appUpdater.start()
-  log.info(null, `Deck ${app.getVersion()} iniciado`)
+  log.info(null, `PokeDeck ${app.getVersion()} iniciado`)
 
   win.on('closed', () => {
     stopMetrics()

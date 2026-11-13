@@ -133,13 +133,13 @@ export function App() {
   )
 }
 
-/** Versão do Deck na barra de status + aviso de atualização baixada. */
+/** Versão do PokeDeck na barra de status + aviso de atualização baixada. */
 function AppVersion({ u, onCheck, onInstall }: { u: AppUpdateState | null; onCheck(): void; onInstall(): void }) {
   if (!u) return null
   if (u.state === 'ready') {
     return (
-      <button className="update-ready" onClick={onInstall} title="Fecha o Deck, instala e abre de novo">
-        Deck {u.version} pronto: reiniciar e atualizar
+      <button className="update-ready" onClick={onInstall} title="Fecha o PokeDeck, instala e abre de novo">
+        PokeDeck {u.version} pronto: reiniciar e atualizar
       </button>
     )
   }

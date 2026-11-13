@@ -1,4 +1,4 @@
-# Deck — navegador multiconta
+# PokeDeck — navegador multiconta
 
 App desktop (Electron + React + TypeScript) para rodar várias contas do mesmo jogo de navegador lado a lado, cada uma com sessão própria.
 
@@ -9,7 +9,7 @@ Requisitos: Node 20+.
 ```bash
 npm install
 npm run dev        # desenvolvimento com hot reload (F12 abre o DevTools da interface)
-npm run dist       # gera o instalador em dist/Deck-Setup-<versão>.exe (sem publicar)
+npm run dist       # gera o instalador em dist/PokeDeck-Setup-<versão>.exe (sem publicar)
 ```
 
 Na primeira vez, o app pede a URL do jogo. Depois é só clicar em **Adicionar conta** e logar normalmente em cada slot. O login fica salvo.
@@ -28,7 +28,7 @@ git push --follow-tags     # o GitHub Actions monta o instalador e cria a Releas
 ```
 
 O fluxo está em `.github/workflows/release.yml` (Windows do GitHub, roda typecheck e testes antes). Quem usa recebe
-a atualização sozinho. Primeira instalação: baixar `Deck-Setup-<versão>.exe` da página de Releases; como o
+a atualização sozinho. Primeira instalação: baixar `PokeDeck-Setup-<versão>.exe` da página de Releases; como o
 instalador não tem assinatura digital, o Windows avisa ("Mais informações → Executar assim mesmo").
 
 Ícone: `build/icon.svg` (arte original: três cartas em leque) → `build/icon.png` (512×512).
