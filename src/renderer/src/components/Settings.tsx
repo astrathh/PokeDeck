@@ -72,12 +72,6 @@ export function Settings({ config, onClose, onSave }: Props) {
 
           <fieldset>
             <legend>Desempenho</legend>
-            <Field
-              label="FPS das contas fora de foco"
-              hint="A conta selecionada (e as destacadas em janela própria) rodam normal. As outras desenham a tela só esse tanto de vezes por segundo: menos CPU e GPU. O jogo e a automação não mudam. 0 = sem limite."
-            >
-              <input type="number" min={0} max={60} value={perf.backgroundFps} onChange={(e) => setP({ backgroundFps: Math.min(60, Math.max(0, Number(e.target.value) || 0)) })} />
-            </Field>
             <label className="check">
               <input type="checkbox" checked={perf.blockTrackers} onChange={(e) => setP({ blockTrackers: e.target.checked })} />
               Bloquear rastreadores nas contas (Facebook Pixel, Google Analytics)

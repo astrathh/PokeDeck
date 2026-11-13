@@ -2,14 +2,13 @@
   "manifest_version": 3,
   "name": "Deck Auto",
   "version": "0.1.0",
-  "description": "Automação do PokeDeck para o Pokeidle (poções e hunts) e limite de FPS das contas fora de foco. Só age quando o PokeDeck chama.",
+  "description": "Automação do PokeDeck para o Pokeidle: compra de poção no NPC e troca de hunt por XP/h do treinador com limite de risco. Só age quando o PokeDeck chama window.__deckAuto.tick().",
   "content_scripts": [
     {
       "matches": [
         "https://pokeidle.io/*"
       ],
       "js": [
-        "perf.js",
         "auto.js"
       ],
       "run_at": "document_start",

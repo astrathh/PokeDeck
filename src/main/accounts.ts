@@ -232,7 +232,6 @@ export class AccountManager extends EventEmitter {
 
     wc.on('dom-ready', () => {
       if (!this.alive(slot)) return
-      this.applyFps(slot)
       if (slot.domReadyTimer) clearTimeout(slot.domReadyTimer)
       slot.domReadyTimer = setTimeout(() => {
         slot.domReadyTimer = null
@@ -343,24 +342,6 @@ export class AccountManager extends EventEmitter {
     })
   }
 
-  private selected: string | null = null
-  /** Conta selecionada na interface: roda sem limite de FPS; as outras, com `backgroundFps`. */
-  setSelected(id: string | null): void {
-    if (this.selected === id) return
-    this.selected = id
-    for (const slot of this.slots.values()) this.applyFps(slot)
-  }
-
-  private applyFps(slot: Slot): void {
-    if (!this.alive(slot)) return
-    const limite = Math.max(0, Number(this.cfg.performance?.backgroundFps) || 0)
-    // Selecionada ou destacada numa janela própria (está sendo vista): sem limite.
-    const fps = slot.id === this.selected || slot.detachedWindow ? 0 : limite
-    void slot.view.webContents
-      .executeJavaScript(`window.__deckPerf ? (window.__deckPerf.setFps(${fps}), true) : false`, false)
-      .catch(() => undefined)
-  }
-
   private setStatus(slot: Slot, status: AccountStatus, event?: string | null): void {
     if (status === 'ready' && slot.status !== 'ready') slot.since = Date.now()
     if (status !== slot.status) slot.statusSince = Date.now()
@@ -435,12 +416,10 @@ export class AccountManager extends EventEmitter {
         slot.view.setVisible(false)
       }
       this.applyLayout()
-      this.applyFps(slot)
       this.emitRuntime()
     })
     this.log.info(slot.id, 'Conta destacada em janela própria')
     this.applyLayout()
-    this.applyFps(slot)
     this.emitRuntime()
   }
 
@@ -524,9 +503,6 @@ export class AccountManager extends EventEmitter {
     }
     this.sync()
     if (prev.watchdog !== next.watchdog) this.restartWatchdog()
-    if (JSON.stringify(prev.performance) !== JSON.stringify(next.performance)) {
-      for (const slot of this.slots.values()) this.applyFps(slot)
-    }
   }
 
   // ---------------------------------------------------------------- watchdog

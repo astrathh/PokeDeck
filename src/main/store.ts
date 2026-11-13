@@ -24,8 +24,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   extensions: ['hunt-for-pokeidle'],
   performance: {
-    blockTrackers: true,
-    backgroundFps: 10
+    blockTrackers: true
   },
   auto: {
     enabled: false,

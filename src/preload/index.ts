@@ -21,7 +21,6 @@ const api: DeckApi = {
   getLogs: () => ipcRenderer.invoke('logs:get'),
   setBounds: (rects) => ipcRenderer.send('layout:bounds', rects),
   setOverlay: (open) => ipcRenderer.send('layout:overlay', open),
-  setSelected: (id) => ipcRenderer.send('layout:selected', id),
   onConfig: (cb) => subscribe('config', cb),
   onRuntime: (cb) => subscribe('runtime', cb),
   onMetrics: (cb) => subscribe('metrics', cb),
