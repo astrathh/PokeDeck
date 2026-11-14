@@ -6,6 +6,12 @@
 # A Release nasce como RASCUNHO (invisível para quem usa): o electron-builder sobe o instalador e o
 # latest.yml, o fluxo confere e escreve a descrição, e só no último passo ela é publicada. Assim nunca
 # sai uma Release pela metade (sem .exe), e funciona também com "releases imutáveis" ligado no GitHub.
+#
+# Três etapas, em sequência:
+#   windows → testa, monta o .exe e CRIA o rascunho
+#   linux   → monta o AppImage ARM64 (VM na nuvem) e sobe no MESMO rascunho (roda depois do windows
+#             para não haver dois jobs criando rascunhos ao mesmo tempo)
+#   publicar → confere os arquivos das duas plataformas, escreve a descrição e publica
 name: Release
 
 on:
@@ -16,12 +22,10 @@ permissions:
   contents: write # criar a Release e subir o instalador
 
 jobs:
-  release:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # histórico e tags, para a descrição da Release
 
       - uses: actions/setup-node@v5
         with:
@@ -40,18 +44,48 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Conferir que o rascunho tem o instalador
-        shell: bash
+  linux:
+    needs: windows
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Montar o AppImage ARM64 e subir no rascunho
+        run: npm run release:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publicar:
+    needs: linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # histórico e tags, para a descrição da Release
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Conferir que o rascunho tem os instaladores
         run: |
           assets=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')
           echo "$assets"
           echo "$assets" | grep -q '^latest.yml$'
           echo "$assets" | grep -q '\.exe$'
+          echo "$assets" | grep -q '^latest-linux-arm64.yml$'
+          echo "$assets" | grep -q '^PokeDeck-linux-arm64.AppImage$'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Escrever a descrição (commits desde a última Release publicada)
-        shell: bash
         run: |
           anterior=$(gh release list --exclude-drafts --limit 30 --json tagName             --jq '[.[] | select(.tagName != env.GITHUB_REF_NAME)][0].tagName // ""')
           echo "descrição: commits de '${anterior:-início}' até $GITHUB_REF_NAME"
@@ -62,7 +96,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publicar a Release
-        shell: bash
         run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

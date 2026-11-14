@@ -12,6 +12,8 @@
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
     "test:auto": "node tests/deck-auto.test.mjs",
     "release": "electron-vite build && electron-builder --win nsis --publish always",
+    "dist:linux": "electron-vite build && electron-builder --linux AppImage --arm64 --publish never",
+    "release:linux": "electron-vite build && electron-builder --linux AppImage --arm64 --publish always",
     "test": "node tests/deck-auto.test.mjs && node tests/release-notes.test.mjs"
   },
   "devDependencies": {
@@ -47,6 +49,14 @@
       "createStartMenuShortcut": true,
       "shortcutName": "PokeDeck",
       "artifactName": "PokeDeck-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Game"
+    },
+    "appImage": {
+      "artifactName": "PokeDeck-linux-${arch}.${ext}"
     },
     "publish": [
       {

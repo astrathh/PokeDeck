@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AccountRuntime, AppConfig, AppUpdateState, LogEntry, MetricsSample } from '../../shared/types'
 import { fmtMb } from './format'
 import { DeckGrid } from './components/DeckGrid'
@@ -128,6 +128,8 @@ export function App() {
         onRemove={(id) => void removeAccount(id)}
       />
 
+      <UpdateToasts u={appUpdate} onInstall={() => void deck.installAppUpdate()} />
+
       {settingsOpen && <Settings config={config} onClose={() => setSettingsOpen(false)} onSave={update} />}
     </div>
   )
@@ -162,5 +164,111 @@ function AppVersion({ u, onCheck, onInstall }: { u: AppUpdateState | null; onChe
       v{u.current}
       {extra}
     </span>
+  )
+}
+
+const RELEASES = 'https://github.com/astrathh/PokeDeck/releases'
+const LAST_VERSION_KEY = 'pokedeck.lastVersion'
+const TOAST_MS = 15_000
+
+interface Toast {
+  id: string
+  title: string
+  text: string
+  action?: { label: string; run(): void }
+  /** Texto do botão que só fecha (padrão: "Fechar") */
+  dismiss?: string
+}
+
+/**
+ * Avisos temporários no canto superior esquerdo (em cima da barra lateral: as telas das contas são
+ * desenhadas por cima do HTML da área central e esconderiam qualquer coisa ali).
+ * - atualização baixada e pronta para instalar (uma vez por versão);
+ * - primeira abertura depois de atualizar.
+ */
+function UpdateToasts({ u, onInstall }: { u: AppUpdateState | null; onInstall(): void }) {
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const shown = useRef(new Set<string>())
+
+  const push = useCallback((t: Toast) => {
+    if (shown.current.has(t.id)) return
+    shown.current.add(t.id)
+    setToasts((list) => [...list, t])
+  }, [])
+  const close = useCallback((id: string) => setToasts((list) => list.filter((t) => t.id !== id)), [])
+
+  // Primeira abertura numa versão nova (o PokeDeck acabou de se atualizar).
+  useEffect(() => {
+    if (!u || u.state === 'dev') return
+    let last: string | null = null
+    try {
+      last = localStorage.getItem(LAST_VERSION_KEY)
+      localStorage.setItem(LAST_VERSION_KEY, u.current)
+    } catch {
+      return
+    }
+    if (last && last !== u.current) {
+      push({
+        id: `updated-${u.current}`,
+        title: `PokeDeck atualizado para a ${u.current}`,
+        text: 'Tudo pronto: contas e configurações continuam como estavam.',
+        action: { label: 'Ver novidades', run: () => window.open(`${RELEASES}/tag/v${u.current}`) }
+      })
+    }
+    // só na abertura: a versão instalada não muda com o app aberto
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [u?.current])
+
+  // Versão nova baixada.
+  useEffect(() => {
+    if (u?.state !== 'ready' || !u.version) return
+    push({
+      id: `ready-${u.version}`,
+      title: `Atualização pronta: ${u.version}`,
+      text: 'Reinicie para instalar. Se preferir, ela instala sozinha quando o PokeDeck fechar.',
+      action: { label: 'Reiniciar agora', run: onInstall },
+      dismiss: 'Depois'
+    })
+  }, [u?.state, u?.version, onInstall, push])
+
+  if (!toasts.length) return null
+  return (
+    <div className="toasts">
+      {toasts.map((t) => (
+        <ToastCard key={t.id} t={t} onClose={() => close(t.id)} />
+      ))}
+    </div>
+  )
+}
+
+function ToastCard({ t, onClose }: { t: Toast; onClose(): void }) {
+  const [hover, setHover] = useState(false)
+  // Some sozinho; com o mouse em cima, espera.
+  useEffect(() => {
+    if (hover) return
+    const timer = setTimeout(onClose, TOAST_MS)
+    return () => clearTimeout(timer)
+  }, [hover, onClose])
+  return (
+    <div className="toast" role="status" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div className="toast-head">
+        <strong>{t.title}</strong>
+        <button className="icon toast-close" onClick={onClose} title="Fechar">
+          ×
+        </button>
+      </div>
+      <span className="muted">{t.text}</span>
+      {t.action && (
+        <div className="toast-actions">
+          <button className="primary" onClick={() => { t.action?.run(); onClose() }}>
+            {t.action.label}
+          </button>
+          <button className="ghost" onClick={onClose}>
+            {t.dismiss ?? 'Fechar'}
+          </button>
+        </div>
+      )}
+      {!hover && <div className="toast-timer" style={{ animationDuration: `${TOAST_MS}ms` }} />}
+    </div>
   )
 }
