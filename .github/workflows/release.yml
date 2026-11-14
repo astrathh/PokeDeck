@@ -9,8 +9,8 @@
 #
 # Três etapas, em sequência:
 #   windows → testa, monta o .exe e CRIA o rascunho
-#   linux   → monta o AppImage ARM64 (VM na nuvem) e sobe no MESMO rascunho (roda depois do windows
-#             para não haver dois jobs criando rascunhos ao mesmo tempo)
+#   linux   → monta os AppImages ARM64 e x64 (VMs na nuvem), cada um na máquina nativa, e sobe no MESMO
+#             rascunho (roda depois do windows para não haver jobs criando rascunhos ao mesmo tempo)
 #   publicar → confere os arquivos das duas plataformas, escreve a descrição e publica
 name: Release
 
@@ -46,7 +46,14 @@ jobs:
 
   linux:
     needs: windows
-    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+          - arch: x64
+            runner: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
 
@@ -57,8 +64,8 @@ jobs:
 
       - run: npm ci
 
-      - name: Montar o AppImage ARM64 e subir no rascunho
-        run: npm run release:linux
+      - name: Montar o AppImage ${{ matrix.arch }} e subir no rascunho
+        run: npm run release:linux-${{ matrix.arch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -82,6 +89,8 @@ jobs:
           echo "$assets" | grep -q '\.exe$'
           echo "$assets" | grep -q '^latest-linux-arm64.yml$'
           echo "$assets" | grep -q '^PokeDeck-linux-arm64.AppImage$'
+          echo "$assets" | grep -q '^latest-linux.yml$'
+          echo "$assets" | grep -q '^PokeDeck-linux-x86_64.AppImage$'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

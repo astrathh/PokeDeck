@@ -12,8 +12,9 @@
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
     "test:auto": "node tests/deck-auto.test.mjs",
     "release": "electron-vite build && electron-builder --win nsis --publish always",
-    "dist:linux": "electron-vite build && electron-builder --linux AppImage --arm64 --publish never",
-    "release:linux": "electron-vite build && electron-builder --linux AppImage --arm64 --publish always",
+    "dist:linux": "electron-vite build && electron-builder --linux AppImage --arm64 --x64 --publish never",
+    "release:linux-arm64": "electron-vite build && electron-builder --linux AppImage --arm64 --publish always",
+    "release:linux-x64": "electron-vite build && electron-builder --linux AppImage --x64 --publish always",
     "test": "node tests/deck-auto.test.mjs && node tests/release-notes.test.mjs"
   },
   "devDependencies": {
