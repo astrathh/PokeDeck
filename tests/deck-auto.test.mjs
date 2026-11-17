@@ -21,7 +21,7 @@ const PCT50 = { id: 999, name: 'Max Elixir 50%', category: 'heal', healPct: 0.5,
  * sem a trava de combate (3 s sem golpe) ou no Centro, 'hunt.select' troca direto; 'centro.ir' só sem a trava.
  * Relógio falso: `avancar(ms)` anda o tempo e roda os timers (fila de ações e missão de 1 s).
  */
-function pagina({ hp, limiar = 30, nivel = 150, huntSlug = 'a', linhas, items = {}, gold = 1e7, potionIds = [200, 203, 204], recusar = [], storage = null, inicio = 1_000_000 }) {
+function pagina({ hp, limiar = 30, nivel = 150, huntSlug = 'a', linhas, items = {}, gold = 1e7, potionIds = [200, 203, 204], recusar = [], storage = null, inicio = 1_000_000, analisar = null }) {
   const enviados = []
   const tempos = [] // quando cada mensagem saiu
   const relogio = { t: inicio }
@@ -51,7 +51,7 @@ function pagina({ hp, limiar = 30, nivel = 150, huntSlug = 'a', linhas, items = 
     __pokeidleHunt: {
       on: (t, fn) => { ouvintes[t] = fn },
       carregarJogo: async () => ({ mod: {}, especies: new Map() }),
-      engine: { REGRAS: { hpCombateMin: 1, hpCombateMult: 1 }, analisar: () => ({ linhas }) },
+      engine: { REGRAS: { hpCombateMin: 1, hpCombateMult: 1 }, analisar: analisar ?? (() => ({ linhas })) },
     },
   }
   const novoTimer = (fn, ms, repete) => { const id = Symbol(); timers.push({ id, fn, quando: relogio.t + (ms ?? 0), ms, repete }); return id }
@@ -612,6 +612,41 @@ await caso('ganho de XP/h acima do empate (+2%): troca mesmo com golpe maior', a
   const p = pagina({ hp: 5000, huntSlug: 'n', linhas: [linha('n', 1000, 0.02), linha('s', 1020, 0.15)], items: { 204: 1e6 }, potionIds: [204] })
   await p.tick(CFG())
   assert.equal(p.eu.huntSlug, 's')
+})
+
+await caso('dia sazonal: passa o tipo do dia para a análise, como o painel do /hunt', async () => {
+  const opcoesVistas = []
+  const analisar = (pk, ctx, op) => {
+    opcoesVistas.push(op)
+    // Dia de Gelo: Snover fica 2× mais forte e deixa de ser a melhor
+    return { linhas: op.tipoDoDia === 'ICE' ? [linha('a', 1000, 0.02), linha('snover', 900, 0.46)] : [linha('a', 1000, 0.02), linha('snover', 1200, 0.23)] }
+  }
+  const p = pagina({ hp: 5000, linhas: [], items: { 204: 1e6 }, potionIds: [204], analisar })
+  p.eu.diaSazonal = { tipo: 'ICE' }
+  await p.tick(CFG())
+  assert.equal(opcoesVistas.at(-1).tipoDoDia, 'ICE')
+  assert.equal(p.eu.huntSlug, 'a')
+})
+
+await caso('tipo do dia desconhecido não é repassado', async () => {
+  const opcoesVistas = []
+  const p = pagina({ hp: 5000, linhas: [], items: { 204: 1e6 }, potionIds: [204], analisar: (pk, ctx, op) => { opcoesVistas.push(op); return { linhas: [linha('a', 1000, 0.02)] } } })
+  p.eu.diaSazonal = { tipo: 'XYZ' }
+  await p.tick(CFG())
+  assert.equal(opcoesVistas.at(-1).tipoDoDia, null)
+})
+
+await caso('análise com NaN na hunt atual: não troca como se fosse arriscada', async () => {
+  const p = pagina({ hp: 5000, huntSlug: 'a', linhas: [linha('a', NaN, NaN), linha('ruim', 10, 0.03)], items: { 204: 1e6 }, potionIds: [204] })
+  const r = await p.tick(CFG())
+  assert.equal(p.eu.huntSlug, 'a')
+  assert.ok(!r.acoes.some((a) => a.msg.includes('arriscada')), JSON.stringify(r.acoes))
+})
+
+await caso('hunt com NaN nunca é escolhida como melhor', async () => {
+  const p = pagina({ hp: 5000, huntSlug: 'a', linhas: [linha('a', 1000, 0.02), linha('nan', 5000, NaN)], items: { 204: 1e6 }, potionIds: [204] })
+  await p.tick(CFG())
+  assert.equal(p.eu.huntSlug, 'a')
 })
 
 console.log(`\n${ok} casos passaram`)

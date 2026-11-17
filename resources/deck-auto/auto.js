@@ -132,6 +132,10 @@
   const pct = (v) => `${Math.round(v * 100)}%`;
   const MIN = 60_000;
   const EMPATE_XP = 0.01; // XP/h com menos de 1% de diferença = empate (decide pelo golpe menor)
+  // A tipagem do dia sazonal, como o jogo manda no estado (o mesmo teste do painel /hunt).
+  const TIPOS_DO_DIA = ['NORMAL', 'FIRE', 'WATER', 'GRASS', 'ELECTRIC', 'ICE', 'FIGHTING', 'POISON', 'GROUND',
+    'FLYING', 'PSYCHIC', 'BUG', 'ROCK', 'GHOST', 'DRAGON', 'DARK', 'STEEL', 'FAIRY'];
+  const finito = (l) => Number.isFinite(l.hitPct) && Number.isFinite(l.xpTreinadorH);
 
   function enviar(msg) {
     if (!sock || sock.readyState !== Original.OPEN) throw new Error('socket do jogo fechado');
@@ -441,7 +445,12 @@
       mapaVisto: (slug) => p.geo?.mapaDa?.(slug) ?? null,
       ritmoMedido: (slug) => (chave ? p.geo?.ritmoMedido?.(slug, chave) ?? null : null),
     };
-    const r = p.engine.analisar(pk, ctx, { ordem: 'xp', soLiberadas: true, comPocao: true });
+    // Dia sazonal: os pokémon da tipagem do dia (o seu e os selvagens) batem o dobro e levam ¼ do
+    // dano. Sem passar isso, a análise diverge do painel do /hunt (ex.: dia de Gelo/Planta → Snover
+    // parecia a melhor hunt, com metade do golpe real). Mesmo teste do painel.
+    const tipoDoDia = TIPOS_DO_DIA.includes(eu.diaSazonal?.tipo) ? eu.diaSazonal.tipo : null;
+    status.tipoDoDia = tipoDoDia;
+    const r = p.engine.analisar(pk, ctx, { ordem: 'xp', soLiberadas: true, comPocao: true, tipoDoDia });
     const REGRAS = p.engine.REGRAS ?? {};
     const hpMax = Number(pk.maxHp) || Math.max(REGRAS.hpCombateMin ?? 1, Math.round(pk.stats.hp * (REGRAS.hpCombateMult ?? 1)));
     status.hpMax = hpMax;
@@ -467,7 +476,8 @@
     // Poção que cura menos que um golpe do selvagem não segura o pokémon (ex.: Small de 60 HP num
     // pokémon de 19k levando golpes de 2.900): não é usada, não é comprada e não conta no estoque.
     const linhasR = r.linhas ?? [];
-    const golpe = (linhasR.find((l) => l.slug === eu.huntSlug)?.hitPct ?? 0) * hpMax;
+    const hitAtual = linhasR.find((l) => l.slug === eu.huntSlug)?.hitPct;
+    const golpe = (Number.isFinite(hitAtual) ? hitAtual : 0) * hpMax;
     const adequadas = pocoes.filter((x) => x.cura >= golpe);
     // `ideal`: a que vale a pena comprar. `emEstoque`: as adequadas que a conta já tem, da melhor para a
     // pior — a primeira vai para "Usar Poções"; quando acaba, a próxima. Só elas contam no estoque.
@@ -490,7 +500,7 @@
     const nivelRef = h.levelOf === 'pokemon' ? Number(pk.level) : Number(eu.level);
     const teto = nivelRef <= h.lowLevel ? h.lowLevelMaxHitPct / 100 : 1;
     const segura = (l) =>
-      !l.inviavel && l.liberada && !l.umHit &&
+      finito(l) && !l.inviavel && l.liberada && !l.umHit &&
       l.hitPct < L && // um golpe maior que o HP no limiar pode matar antes da poção disparar
       l.hitPct <= teto &&
       (!h.requirePositiveGold || l.ouroH - custoH(l) >= 0);
@@ -539,7 +549,7 @@
       } else {
         status.huntNote = `fora de hunt: tenta ir para ${destino.nome} de novo em instantes`;
       }
-    } else if (h.enabled && eu.huntSlug && atual && !ocupada && !eu.noCentro && !missao) {
+    } else if (h.enabled && eu.huntSlug && atual && finito(atual) && !ocupada && !eu.noCentro && !missao) {
       const insegura = !segura(atual);
       // Maior XP/h segura sempre ganha; empatada (atual na faixa de EMPATE_XP), só troca por golpe menor.
       const atualEmpata = !insegura && naFaixa(atual);
@@ -597,6 +607,7 @@
         : ocupada ? 'em outra atividade (boss, místico ou casa): não troca de hunt'
         : !atual ? `a hunt atual (${eu.huntSlug}) não aparece no ranking do /hunt: não troca`
         : missao ? `trocando para ${missao.para.nome}: ${missao.fase === 'sair' ? (missao.viaCentro ? 'esperando a trava de combate para ir ao Centro' : 'esperando a trava de combate') : 'no Centro, indo para a hunt'}`
+        : !finito(atual) && !eu.noCentro ? 'a análise da hunt atual veio incompleta (NaN): não troca neste tick'
         : '';
     }
 
